@@ -12,6 +12,14 @@
 #include "IoExpander.h"
 #include <cstdio>
 #include "PlayerQueue.h"
+#include <vector>
+#include <memory>
+
+typedef struct CHIPSTATE_T {
+	SOUNDCHIP_T last;
+	SOUNDCHIP_T current;
+} CHIPSTATE_T;
+
 class Player {
 public:
 	Player();
@@ -21,12 +29,13 @@ public:
 private:
 	void play();
 	void processQueue(PLAYER_QUEUE_T * pq);
-	Pt3Parser * parser;
+	void initParser(uint8_t chipMask, uint8_t * modAddress);
 	uint8_t buildArray(uint8_t startPos, uint8_t * chip, uint8_t * prevVals, const uint8_t chipMask);
-	SOUNDCHIP_T lastState;
-	SOUNDCHIP_T soundchip;
+	std::vector<std::unique_ptr<CHIPSTATE_T>> chipV;
+	std::vector<std::unique_ptr<Pt3Parser>> parsers;
 	IoExpander * iox;
-	uint8_t txArr[208];
+	uint8_t * module;
+	uint8_t txArr[256];
 	bool playing;
 };
 

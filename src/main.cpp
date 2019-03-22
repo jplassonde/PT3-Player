@@ -67,10 +67,10 @@ FrameCounter * vbc;
 ********************************************************************/
 int main(void) {
 	hardware_config();
-	HAL_Delay(50);
+	HAL_Delay(200);
 
-	fc = new FrameCounter();
-	vbc = new FrameCounter();
+	//fc = new FrameCounter();
+	//vbc = new FrameCounter();
 
 	xVblankSema = xSemaphoreCreateBinary();
 	xDma2dSemaphore = xSemaphoreCreateBinary();

@@ -77,13 +77,12 @@ void Channel::setBaseVol(uint8_t vol) {
 }
 
 void Channel::processGliss(SAMPLE_DATA_T * sd) {
-	++effectTick;
 	if (effectTick >= effectArg[0] && effectArg[0] != 0) {
 		accTone += *(uint16_t*)&effectArg[1];
+		effectTick = 0;
 	}
-
 	sd->toneShift+=accTone;
-
+	++effectTick;
 }
 
 void Channel::processPortamento(SAMPLE_DATA_T * sd) {
@@ -107,17 +106,14 @@ void Channel::savePortParams() {
 
 
 void Channel::processVibrato(SAMPLE_DATA_T * sd) {
-	++effectTick;
 	if (effectTick >= effectArg[0]) {
 		sd->volume = 0;
 	}
 	if (effectTick >= effectArg[0] + effectArg[1] && effectArg[1] != 0) {
 		effectTick = 0;
 	}
-
+	++effectTick;
 }
-
-
 
 void Channel::processChanTick(uint8_t * freqH, uint8_t * freqL,
 					 	 	  uint8_t * mixer, uint8_t * vol,
@@ -136,7 +132,7 @@ void Channel::processChanTick(uint8_t * freqH, uint8_t * freqL,
 
 	// The mystery of the tone/noiseless envelope?
 	if (sampData.mask == 0x09) {
-		tone = 0;
+		tone = 1;
 		sampData.mask = 0x08;
 	}
 	*freqH = (tone >> 8) & 0x0F;

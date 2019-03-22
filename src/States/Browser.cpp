@@ -89,7 +89,7 @@ void Browser::buildDirList() {
 		if (res != FR_OK || fno.fname[0] == 0) {
 			break;
 		}
-		std::unique_ptr<ListElement>listElement(new ListElement(&fno, (fno.fattrib & AM_DIR ? cdPtr : playPtr)));
+		 std::unique_ptr<ListElement>listElement(new ListElement(&fno, (fno.fattrib & AM_DIR ? cdPtr : playPtr)));
 		listV.push_back(std::move(listElement));
 	}
 
@@ -135,6 +135,7 @@ void Browser::play(TCHAR * name, FSIZE_t size) {
 	PLAYER_QUEUE_T pq;
 	pq.cmd = PLAY;
 	pq.moduleAddr = file;
+	pq.size = size;
 	xQueueSend(xPlayerCmdQueue, (void *)&pq, portMAX_DELAY);
 
 	// Mmm... The sweet smell of overcooked pastas.

@@ -66,7 +66,7 @@ void hardware_config() {
 	HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
 	HAL_InitTick(TICK_INT_PRIORITY);
 
-	HAL_Delay(10);
+	HAL_Delay(20);
 	SystemClock_Config();
 
 	// Enable all GPIO ports clocks
@@ -219,7 +219,7 @@ void SDRAM_Init() {
 	Command.ModeRegisterDefinition = 0;
 	HAL_SDRAM_SendCommand(&sdramHandle, &Command, SDRAM_TIMEOUT);
 
-	HAL_Delay(1);
+	HAL_Delay(2);
 
 	// Precharge all command */
 	Command.CommandMode            = FMC_SDRAM_CMD_PALL;

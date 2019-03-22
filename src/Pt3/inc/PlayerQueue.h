@@ -7,4 +7,5 @@
 typedef struct PLAYER_QUEUE_T {
 	uint8_t cmd;
 	uint8_t * moduleAddr;
+	uint16_t size;
 } PLAYER_QUEUE_T;

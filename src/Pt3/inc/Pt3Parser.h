@@ -18,6 +18,8 @@ typedef struct SOUNDCHIP_T {
 	uint8_t envL;
 	uint8_t envH;
 	uint8_t envShape;
+	uint8_t mask;
+	uint8_t envReset;
 } SOUNDCHIP_T;
 
 class Pt3Parser {

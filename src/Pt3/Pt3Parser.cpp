@@ -11,10 +11,6 @@ constexpr uint8_t SAMPTABLE_IDX = 0x69;
 constexpr uint8_t ORNTABLE_IDX = 0xA9;
 constexpr uint8_t PATTERNORDER_IDX = 0xC9;
 
-// Testing envelope register updating..
-extern bool envelopeUpdated;
-extern bool envReset;
-
 Pt3Parser::Pt3Parser(SOUNDCHIP_T * const chip, const uint8_t * module, bool loop) :
 														  soundchip(chip),
 														  module(module), loop(loop),
@@ -188,7 +184,6 @@ uint8_t Pt3Parser::parseLine(Channel * channel) {
 		return 1;
 
 	case 0x11 ... 0x1E: // Init envelope and sample
-		envelopeUpdated = true;
 		initEnvelope((data & 0x0F)/*-1*/, module[channel->pos], module[channel->pos+1], channel);
 		channel->setSample(&module[sampleTable[module[channel->pos+2]/2]]);
 		channel->pos+=3;
@@ -219,7 +214,6 @@ uint8_t Pt3Parser::parseLine(Channel * channel) {
 		return 1;
 
 	case 0xB2 ... 0xBF: // Envelope Selection
-		envelopeUpdated = true;
 		initEnvelope((data & 0x0F) - 1, module[channel->pos], module[channel->pos+1], channel);
 		channel->pos+=2;
 		return 1;
@@ -261,7 +255,6 @@ void Pt3Parser::processEnvSlide() {
 	if (envTick >= envDelay) {
 		baseEnvelope += envSlide;
 		envTick=0;
-		envelopeUpdated = true;
 	}
 	++envTick;
 }
@@ -271,5 +264,5 @@ void Pt3Parser::initEnvelope(uint8_t shape, uint8_t envH, uint8_t envL, Channel 
 	baseEnvelope = (envH << 8) | envL;
 	channel->enableEnvelope();
 	envSlideEnabled = false;
-	envReset = true;
+	soundchip->envReset = 1;
 }

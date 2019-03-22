@@ -7,23 +7,16 @@ extern volatile uint8_t msFlag;
 extern QueueHandle_t xPlayerCmdQueue;
 extern SemaphoreHandle_t xPlayerTickSema;
 
-bool envelopeUpdated; // unused
-bool envReset;        // hack
-
-Player::Player() : lastState({0xA5}),
-				   soundchip({0x00}) {
-
+Player::Player() {
 	iox = new IoExpander();
 	txArr[0] = IOA;
 	playing = false;
-	parser = nullptr;
-	envelopeUpdated = true;
-	envReset = false;
+	module = nullptr;
 }
 
 Player::~Player() {
-	delete parser;
 	delete iox;
+	delete module;
 }
 
 void Player::run() {
@@ -44,52 +37,79 @@ void Player::run() {
 	} // end while(1);
 } // end run
 
+
 void Player::processQueue(PLAYER_QUEUE_T * pq) {
 	if (pq->cmd == PLAY) {
-		if (parser != nullptr) {
-			delete parser;
+		parsers.clear();
+		chipV.clear();
+		delete module;
+
+		module = pq->moduleAddr;
+
+		initParser(AY30, module);
+
+		if (strncmp((const char *)&module[pq->size-4], "02TS", 4) == 0) {
+			uint16_t secondModIndex = *(uint16_t *)&module[pq->size-12];
+			initParser(AY13, &module[secondModIndex]);
 		}
-		parser = new Pt3Parser(&soundchip, pq->moduleAddr, true);
 		playing = true;
 	}
 }
 
-void Player::play() {
-	parser->processTick();
+void Player::initParser(uint8_t chipMask, uint8_t * modAddress) {
+	const uint8_t lastStateInit[13] = {0xA5};
+	std::unique_ptr<CHIPSTATE_T> chip((CHIPSTATE_T*)pvPortMalloc(sizeof(CHIPSTATE_T)));
+	memcpy(&chip->last, &lastStateInit, 13);
+	chip->current.mask = chipMask;
 
-	uint8_t length = buildArray(1, (uint8_t *)&soundchip, (uint8_t *)&lastState, AY30);
+
+	std::unique_ptr<Pt3Parser> parser(new Pt3Parser(&(chip->current), modAddress, true));
+
+	chipV.push_back(std::move(chip));
+	parsers.push_back(std::move(parser));
+}
+
+void Player::play() {
+	uint8_t length = 1;
+
+	for (auto &i : parsers) {
+		i->processTick();
+	}
+
+	for (auto &i : chipV) {
+		length = buildArray(length, (uint8_t *)&i->current, (uint8_t *)&i->last, i->current.mask);
+		memcpy(&i->last, &i->current, sizeof(SOUNDCHIP_T));
+	}
+	txArr[length++] = AY30 | AY13;
 
 	xSemaphoreTake(xPlayTickSema, portMAX_DELAY);
 
 	if (length > 5) {
 		iox->sendData(txArr, length);
-		memcpy(&lastState, &soundchip, sizeof(SOUNDCHIP_T));
+
 	}
 }
 
-uint8_t Player::buildArray(uint8_t index, uint8_t * chip, uint8_t * prevVals, const uint8_t chipMask) {
-	uint8_t latchAddr = chipMask | BDIR | BC1;
-	uint8_t writeData = chipMask | BDIR;
-    uint8_t busInactive = chipMask;
+uint8_t Player::buildArray(uint8_t index, uint8_t * current, uint8_t * previous, uint8_t mask) {
+	uint8_t latchAddr = mask | BDIR | BC1;
+	uint8_t writeData = mask | BDIR;
+    uint8_t busInactive = mask;
 
     // Send updated data using one long transfer with bus transactions, IO expender will alternate between port
-    //+ Small hack to reset envelope event though it didnt "change" value.
+    // value at index 15 indicate a reset of the envelope period.
     for (int i = 0; i <= 13; i++) {
-    	if (chip[i] != prevVals[i] || (i == 13 && envReset)) {
+    	if  (current[i] != previous[i] || (i == 13 && current[15] == 1)) {
        		txArr[index++] = busInactive;
     		txArr[index++] = i;
     		txArr[index++] = latchAddr;
     		txArr[index++] = i;
     		txArr[index++] = busInactive;
-    		txArr[index++] = chip[i];
+    		txArr[index++] = current[i];
     		txArr[index++] = writeData;
-    		txArr[index++] = chip[i];
+    		txArr[index++] = current[i];
     	}
     }
-
-    txArr[index++] = busInactive;
-    envelopeUpdated = false;
-    envReset = false;
+    current[15] = 0;
     return index;
 }
 
