@@ -93,7 +93,7 @@ void Player::play() {
 uint8_t Player::buildArray(uint8_t index, uint8_t * current, uint8_t * previous, uint8_t mask) {
 	uint8_t latchAddr = mask | BDIR | BC1;
 	uint8_t writeData = mask | BDIR;
-    uint8_t busInactive = mask;
+    uint8_t busInactive = mask | AY30;
 
     // Send updated data using one long transfer with bus transactions, IO expender will alternate between port
     // value at index 15 indicate a reset of the envelope period.

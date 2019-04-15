@@ -5,9 +5,12 @@ Touchscreen music player on Cortex-M7 with FreeRTOS
 
 [Demo on YouTube](https://www.youtube.com/watch?v=uLp3UKVO3BU)
 
-I didn't want to spend 150€ on ebay to get a Spectrum 128k and I thought it would be more fun to build my own
-player and touch/graphic engine from scratch. Right now it is still barely more than a  proof-of-concept and 
-there is a lot of work left to do.
+An attempt to build a touch-screen driven application without using a framework. 
+Browse PT3 files (ZX Spectrum tracker format) on an SD card, parse & play them on 
+AY-3-8910 soundchips on a custom add-on board.
+It is currently a work in progress, suffers from bad design here and there
+and still needs a lot of improvements...
+
 
 -= Program Overview =-
 
@@ -44,20 +47,16 @@ ever used in the few glitching cases.
 -= Backlog =-
 
 General: 
-- Major refactoring and reworking of the core is essential before throwing
-  anything else in that bucket of pasta. And dead/duplicate code removal. 
-- Restrict scopes, Lots of them. Const decorating & fix some typecastings. 
-- Implement proper DMA on I2C1 & SD card transfer.
+- Needs a LOT of refactoring / design improvement.
 - Software calibration of the touchscreen. Factory-mode "auto-calibration" is
   undocumented, and there is a significant drift at the end of the Y axis.
 - Add track controls (pause play stop), display time, slider, etc...
 - Create and add icons for files and folders in the browser.
 
 PT3 parser:
-- Refactoring
-- Misc. fixes?
+- Hunt down bug, and rewrite some parts...
 
 Others features to add (eventually, low priority):
+- Add filebrowsing/control via MQTT.
 - Add a mode for MIDI control, using pt3's samples and ornaments
-- Add filebrowsing/playing via MQTT.
 - Configure the board's audio codec and add a menu for volume & eq control.

@@ -1,33 +1,28 @@
-#include "MainEngine.h"
+#include "Browser.h"
+#include "Idle.h"
+#include "PlayerDisplay.h"
 #include "States.h"
+#include "MainEngine.h"
 #include "fbState.h"
 #include "SDCard.h"
-
-// Gfx
+#include "PlayerQueue.h"
 #include "scanline.h"
 #include "speccy800x180.h"
 
 // Global variables
 uint32_t globalTick;
-Font * rezFont18px;
-Font * rezFont27px;
-SDCard * sdCard; // Doesnt go here, but have to be created once the scheduler is started
-				 // and kind of need to be global since fatFS is using it.
 
-// FreeRTOS
+// Handles
 extern QueueHandle_t xTSEventQueue;
+extern QueueHandle_t xPlayerCmdQueue;
 
-MainEngine::MainEngine()  {
-	rezFont18px = new Font(Font::rez18px); // Out of place...
-	rezFont27px = new Font(Font::rez27px);
-	currentState = new Idle(this);
+MainEngine::MainEngine() : idle(new Idle(this)), browser(new Browser(this)), pd(new PlayerDisplay(this)) {
+	currentScreen = idle;
 	globalTick = 0;
 }
 
 MainEngine::~MainEngine() {
-	delete rezFont18px;
-	delete rezFont27px;
-	delete currentState;
+
 }
 /*********************************************************************************
 Method: MainEngine::run
@@ -43,17 +38,29 @@ void MainEngine::run() {
 
 	while(1) {
 		if (xQueueReceive(xTSEventQueue, (void*)&touchEvent, 0) == pdTRUE) {
-			currentState->processTouch(touchEvent);
+			currentScreen->processTouch(touchEvent);
 		}
 		xEventGroupWaitBits(xFramebuffersState, BB_AVAILABLE, pdTRUE, pdTRUE, portMAX_DELAY);
-		currentState->drawScreen();
+		currentScreen->drawScreen();
+		addScanlines();
 		xEventGroupSetBits(xFramebuffersState, BB_DRAWN);
 		++globalTick;
 	}
 }
 
-void MainEngine::switchState(AbstractState * state) {
-	currentState = state;
+void MainEngine::switchState(BaseScreen * screen) {
+	currentScreen = screen;
+}
+
+void MainEngine::play(uint8_t * name, uint8_t * file, FSIZE_t size) {
+	PLAYER_QUEUE_T pq;
+	pq.cmd = PLAY;
+	pq.moduleAddr = file;
+	pq.size = size;
+
+	pd->setInfos(name, &file[30], &file[66]);
+	switchState(pd);
+	xQueueSend(xPlayerCmdQueue, (void *)&pq, portMAX_DELAY);
 }
 
 /**********************************************************************************
@@ -89,12 +96,10 @@ void MainEngine::addScanlines() {
 }
 
 /**********************************************************************************
-Method: MainEngine::addScanlines
+Method: MainEngine::drawBackground()
 Description:
-Add horizontal scanlines to the display.
+Clear background to grey and add Sinclair/speccy logo
 
-Whoever designed the WVGA display forgot to put scanlines in it, so I'm adding them
-here.
 ***********************************************************************************/
 void MainEngine::drawBackground() {
 	hdma2d.Init.Mode = DMA2D_R2M;
@@ -115,11 +120,10 @@ void MainEngine::drawBackground() {
 	xSemaphoreTake(xDma2dSemaphore, portMAX_DELAY);
 }
 
-
-
 // Task Entry
 void MainTask(__attribute__((unused)) void *pvParameters) {
-	sdCard = new SDCard();
-	MainEngine * mainEngine = new MainEngine();
-	mainEngine->run();
+	fontInit();
+	sdInit();
+	MainEngine mainEngine;
+	mainEngine.run();
 }

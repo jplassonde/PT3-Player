@@ -3,9 +3,13 @@
 #include <map>
 #include <cstdint>
 
+
+void fontInit();
+
 class Font {
 
 public:
+	static void init();
 	enum fontSelect {rez18px, rez27px};
 	Font(fontSelect fontSel);
 	virtual ~Font();

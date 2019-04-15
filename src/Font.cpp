@@ -2,6 +2,14 @@
 #include <rezFont27px.h>
 #include "Font.h"
 
+Font * rezFont18px;
+Font * rezFont27px;
+
+void fontInit() {
+	rezFont18px = new Font(Font::rez18px);
+	rezFont27px = new Font(Font::rez27px);
+}
+
 Font::Font(fontSelect fontSel) {
 	switch (fontSel) {
 	case rez18px:
@@ -55,7 +63,7 @@ Font::Font(fontSelect fontSel) {
 }
 
 Font::~Font() {
-	// TODO Auto-generated destructor stub
+	delete fontMap;
 }
 
 const uint8_t * Font::getChar(uint8_t c) {

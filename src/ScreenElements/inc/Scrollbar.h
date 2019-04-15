@@ -9,7 +9,6 @@ public:
 	void draw();
 	void press(TOUCH_EVENT_T touchEvent);
 	void contact(TOUCH_EVENT_T touchEvent);
-	bool isInside(uint16_t x, uint16_t y);
 	void setCursor(uint16_t y);
 private:
 	void sendPos(uint16_t touchY);

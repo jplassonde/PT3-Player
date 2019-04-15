@@ -10,7 +10,6 @@ public:
 	virtual ~SideScroller();
 	void draw();
 private:
-	virtual void drawCharDma2D(const uint8_t * const character, uint8_t xStart, uint8_t xStop, uint16_t xPos, uint16_t yPos, uint32_t framebuffer);
 	void drawChar(const uint8_t * const character, uint8_t xStart, uint8_t xStop, uint16_t xPos, uint32_t framebuffer);
 
 	uint32_t getColor(uint16_t xPos, uint16_t yPos);

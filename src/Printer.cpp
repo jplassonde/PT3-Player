@@ -11,7 +11,49 @@ extern uint32_t globalTick;
 constexpr uint8_t bppIn = 3; // Bytes per pixel of source images (all but fonts).
 constexpr uint8_t bppOut = 4; // Bytes per pixel of screenbuffer.
 
-void Printer::printString(STR_PRINT_T * ps) {
+namespace Printer {
+
+	namespace {
+		uint32_t getColor(uint16_t x, uint16_t y) {
+			return color2[(((sinetable[((x >> 2) + (globalTick << 2)) & 0xFF] << 1) + (y << 1) + (globalTick << 3)) >> 2) & 0xFF];
+		}
+
+		void prvPrintCroppedChar(uint16_t offset, char c, uint8_t leftCrop, uint8_t rightCrop, STR_PRINT_T * ps) {
+			uint32_t destination = Screen::getBackBufferAddr() + (ps->yPosition*800 + ps->xPosition + offset)*bppOut;
+			uint8_t width = ps->font->getWidth();
+
+			hdma2d.Init.Mode = DMA2D_M2M_BLEND;
+			hdma2d.Init.OutputOffset = 800 - (width - leftCrop - rightCrop);
+			hdma2d.LayerCfg[0].InputOffset = 800 - (width - leftCrop - rightCrop);
+			hdma2d.LayerCfg[1].InputColorMode = DMA2D_INPUT_A8;
+			hdma2d.LayerCfg[1].InputAlpha = 0xFFFFFFFF;
+			hdma2d.LayerCfg[1].AlphaMode = DMA2D_NO_MODIF_ALPHA;
+			hdma2d.LayerCfg[1].InputOffset = leftCrop+rightCrop;
+
+			HAL_DMA2D_Init(&hdma2d);
+			HAL_DMA2D_ConfigLayer(&hdma2d, 0);
+			HAL_DMA2D_ConfigLayer(&hdma2d, 1);
+			HAL_DMA2D_BlendingStart_IT(&hdma2d, (uint32_t)ps->font->getChar(c) + leftCrop + ps->topCrop*width,
+												   destination, destination, width-leftCrop-rightCrop,
+												   ps->height);
+			xSemaphoreTake(xDma2dSemaphore, portMAX_DELAY);
+		}
+
+		void prvPrintColChar(uint16_t offset, char c, uint8_t leftCrop, uint8_t rightCrop, STR_PRINT_T * ps) {
+			uint32_t destination = Screen::getBackBufferAddr() + (ps->yPosition*800 + ps->xPosition + offset)*bppOut;
+			const uint8_t * source = ps->font->getChar(c);
+
+			for (int h = 0; h < ps->font->getHeight(); h++) {
+				for (int w = 0; w < (ps->font->getWidth() - leftCrop - rightCrop); w++) {
+					if (source[h*ps->font->getWidth()+leftCrop+w] == 0xFF) {
+						*(uint32_t *)(destination+bppOut*(h*800+w)) = getColor(ps->xPosition+w+offset, ps->yPosition+h);
+					}
+				}
+			}
+		}
+	}
+
+void printString(STR_PRINT_T * ps) {
 	uint32_t destination = Screen::getBackBufferAddr() + (ps->yPosition*800 + ps->xPosition) * 4;
 	hdma2d.Init.Mode         = DMA2D_M2M_BLEND;
 	hdma2d.Init.OutputOffset = 800 - ps->font->getWidth();
@@ -38,7 +80,7 @@ void Printer::printString(STR_PRINT_T * ps) {
 	}
 }
 
-void Printer::printColString(STR_PRINT_T * ps) {
+void printColString(STR_PRINT_T * ps) {
 	uint8_t width = ps->font->getWidth();
 	uint32_t destination = Screen::getBackBufferAddr() + (ps->yPosition*800 + ps->xPosition) * 4;
 	uint32_t workDest;
@@ -64,12 +106,7 @@ void Printer::printColString(STR_PRINT_T * ps) {
 	}
 }
 
-// Yay, Colors!
-uint32_t Printer::getColor(uint16_t x, uint16_t y) {
-	return color2[(((sinetable[((x >> 2) + (globalTick << 2)) & 0xFF] << 1) + (y << 1) + (globalTick << 3)) >> 2) & 0xFF];
-}
-
-void Printer::printCroppedString(STR_PRINT_T * ps) {
+void printCroppedString(STR_PRINT_T * ps) {
 	uint8_t leftCrop = ps->leftCrop % ps->font->getWidth(); 	// How much of the first character printed need to be left cropped
 	uint16_t charIndex = (uint8_t)floor(ps->leftCrop/ps->font->getWidth()); 	// First character to print
 	uint32_t widthRemaining = ps->length;						// Max amount of width to print
@@ -91,41 +128,8 @@ void Printer::printCroppedString(STR_PRINT_T * ps) {
 	}
 }
 
-void Printer::prvPrintCroppedChar(uint16_t offset, char c, uint8_t leftCrop, uint8_t rightCrop, STR_PRINT_T * ps) {
-	uint32_t destination = Screen::getBackBufferAddr() + (ps->yPosition*800 + ps->xPosition + offset)*bppOut;
-	uint8_t width = ps->font->getWidth();
 
-	hdma2d.Init.Mode = DMA2D_M2M_BLEND;
-	hdma2d.Init.OutputOffset = 800 - (width - leftCrop - rightCrop);
-	hdma2d.LayerCfg[0].InputOffset = 800 - (width - leftCrop - rightCrop);
-	hdma2d.LayerCfg[1].InputColorMode = DMA2D_INPUT_A8;
-	hdma2d.LayerCfg[1].InputAlpha = 0xFFFFFFFF;
-	hdma2d.LayerCfg[1].AlphaMode = DMA2D_NO_MODIF_ALPHA;
-	hdma2d.LayerCfg[1].InputOffset = leftCrop+rightCrop;
-
-	HAL_DMA2D_Init(&hdma2d);
-	HAL_DMA2D_ConfigLayer(&hdma2d, 0);
-	HAL_DMA2D_ConfigLayer(&hdma2d, 1);
-	HAL_DMA2D_BlendingStart_IT(&hdma2d, (uint32_t)ps->font->getChar(c) + leftCrop + ps->topCrop*width,
-										   destination, destination, width-leftCrop-rightCrop,
-										   ps->height);
-	xSemaphoreTake(xDma2dSemaphore, portMAX_DELAY);
-}
-
-void Printer::prvPrintColChar(uint16_t offset, char c, uint8_t leftCrop, uint8_t rightCrop, STR_PRINT_T * ps) {
-	uint32_t destination = Screen::getBackBufferAddr() + (ps->yPosition*800 + ps->xPosition + offset)*bppOut;
-	const uint8_t * source = ps->font->getChar(c);
-
-	for (int h = 0; h < ps->font->getHeight(); h++) {
-		for (int w = 0; w < (ps->font->getWidth() - leftCrop - rightCrop); w++) {
-			if (source[h*ps->font->getWidth()+leftCrop+w] == 0xFF) {
-				*(uint32_t *)(destination+bppOut*(h*800+w)) = getColor(ps->xPosition+w+offset, ps->yPosition+h);
-			}
-		}
-	}
-}
-
-void Printer::printImg(IMG_PRINT_T * ps) {
+void printImg(IMG_PRINT_T * ps) {
 	uint32_t destination = Screen::getBackBufferAddr() + (ps->yPosition*800 + ps->xPosition);
 
 	hdma2d.Init.Mode = DMA2D_M2M_PFC;
@@ -142,8 +146,7 @@ void Printer::printImg(IMG_PRINT_T * ps) {
 	xSemaphoreTake(xDma2dSemaphore, portMAX_DELAY);
 }
 
-
-void Printer::printCroppedImg(IMG_PRINT_T * ps) {
+void printCroppedImg(IMG_PRINT_T * ps) {
 	uint32_t destination = Screen::getBackBufferAddr() + (ps->yPosition*800 + ps->xPosition) * bppOut;
 	uint32_t source = ps->imgAddress + (ps->topCrop*ps->imgWidth + ps->leftCrop)*bppIn;
 
@@ -161,4 +164,5 @@ void Printer::printCroppedImg(IMG_PRINT_T * ps) {
 					   ps->height);
 
 	xSemaphoreTake(xDma2dSemaphore, portMAX_DELAY);
+}
 }

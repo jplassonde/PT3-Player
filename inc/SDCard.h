@@ -3,6 +3,9 @@
 #include "project.h"
 #include "diskio.h"
 
+
+void sdInit();
+
 class SDCard {
 public:
 	SDCard();

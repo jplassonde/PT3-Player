@@ -1,12 +1,17 @@
 #pragma once
 
 #include <cstdint>
-#include "AbstractState.h"
+#include "BaseScreen.h"
 #include "Font.h"
 #include "Screen.h"
+#include "ff.h"
 
 extern Font * rezFont18px;
 extern Font * rezFont27px;
+class Browser;
+class PlayerDisplay;
+class Idle;
+
 
 class MainEngine {
 public:
@@ -15,11 +20,15 @@ public:
 	void run();
 	uint32_t getTick();
 	uint32_t getColor(uint16_t xPos, uint16_t yPos);
-	void switchState(AbstractState * state);
+	void switchState(BaseScreen * screen);
+	void play(uint8_t * name, uint8_t * file, FSIZE_t size);
 	void drawBackground();
-	void addScanlines();
+	Idle * idle;
+	Browser * browser;
+	PlayerDisplay * pd;
+
 private:
+	void addScanlines();
 	uint32_t tick;
-	AbstractState * currentState;
-	Screen * screen;
+	BaseScreen * currentScreen;
 };

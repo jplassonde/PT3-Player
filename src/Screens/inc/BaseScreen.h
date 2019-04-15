@@ -10,9 +10,9 @@
 extern Font * rezFont18px;
 extern Font * rezFont27px;
 
-class AbstractState {
+class BaseScreen {
 public:
-	virtual ~AbstractState() {}
+	virtual ~BaseScreen() {}
 	virtual void processTouch(TOUCH_EVENT_T touchEvent) = 0;
 	virtual void drawScreen() = 0;
 protected:

@@ -1,5 +1,5 @@
-#include <Browser.h>
-#include <Idle.h>
+#include "Browser.h"
+#include "Idle.h"
 #include "project.h"
 #include "Printer.h"
 #include <cstring>
@@ -20,9 +20,7 @@ Idle::~Idle() {
 
 void Idle::processTouch(TOUCH_EVENT_T touchData) {
 	if (touchData.touchEvent == EVENT_UP) {
-		AbstractState * newState = new Browser(mainEngine);
-		mainEngine->switchState(newState);
-		delete this;
+		mainEngine->switchState(mainEngine->browser);
 	}
 }
 
@@ -31,5 +29,4 @@ void Idle::drawScreen() {
 	for ( auto &i : screenElemV ) {
 		i->draw();
 	}
-	mainEngine->addScanlines();
 }

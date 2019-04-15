@@ -1,6 +1,9 @@
 #include "ScreenElement.h"
 
-ScreenElement::ScreenElement() {}
+
+
+ScreenElement::ScreenElement() {
+}
 
 ScreenElement::ScreenElement(uint16_t x, uint16_t y) : xPos(x), yPos(y) {
 }
@@ -34,3 +37,5 @@ bool ScreenElement::isInside(uint16_t x, uint16_t y) {
 		return false;
 	}
 }
+
+void (ScreenElement::*ScreenElement::eventPtr[])(TOUCH_EVENT_T) = {&ScreenElement::press, &ScreenElement::liftOff, &ScreenElement::contact};

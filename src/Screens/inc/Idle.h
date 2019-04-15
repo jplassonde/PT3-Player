@@ -2,7 +2,7 @@
 
 #include "MainEngine.h"
 
-class Idle : public AbstractState {
+class Idle : public BaseScreen {
 public:
 	Idle(MainEngine * mainEngine);
 	virtual ~Idle();

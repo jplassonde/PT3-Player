@@ -16,7 +16,7 @@ Text::~Text() {
 }
 
 void Text::draw() {
-	STR_PRINT_T printCfg = {0};
+	Printer::STR_PRINT_T printCfg = {0};
 	printCfg.xPosition = xPos;
 	printCfg.yPosition = yPos;
 	printCfg.font = font;

@@ -31,7 +31,7 @@ void ListElement::draw() {
 		return;
 	}
 
-	IMG_PRINT_T imgCfg = {0};
+	Printer::IMG_PRINT_T imgCfg = {0};
 	imgCfg.imgAddress = (uint32_t)listitem;
 	imgCfg.imgWidth = 750;
 	imgCfg.topCrop = (yPosition < 50 ? 50-yPosition : 0);
@@ -46,7 +46,7 @@ void ListElement::draw() {
 		return;
 	}
 
-	STR_PRINT_T strCfg = {0};
+	Printer::STR_PRINT_T strCfg = {0};
 	strCfg.str = name;
 	strCfg.font = rezFont27px;
 	strCfg.length = 700;
@@ -95,7 +95,6 @@ bool ListElement::isInside(uint16_t x, uint16_t y) {
 
 void ListElement::setY(int16_t pos) {
 	isPressed = false;
-	textStart = 0;
 	yPosition = pos;
 }
 

@@ -3,10 +3,12 @@
 
 SD_HandleTypeDef sdHandle;
 SemaphoreHandle_t xTransferCpltSema;
+SDCard * sdCard;
 
+void sdInit() {
+	sdCard = new SDCard();
+}
 
-// Init everything in the constructor.
-// This should be made a singleton
 SDCard::SDCard() {
 	xTransferCpltSema = xSemaphoreCreateBinary();
 
@@ -115,9 +117,8 @@ DSTATUS SDCard::getStatus() {
 
 DRESULT SDCard::sdRead(uint8_t * buff, uint32_t firstSector, uint32_t sectorCount) {
 	HAL_StatusTypeDef result;
-	// All this DMA config to end up reading in interrupt mode.... DMA transfer are timing out and ST lib is... POLLING end of transfer anyway.
-	// todo: Proper DMA config/transfer
-	result = HAL_SD_ReadBlocks_IT(&sdHandle, buff, firstSector, sectorCount);
+	SCB_CleanInvalidateDCache();
+	result = HAL_SD_ReadBlocks_DMA(&sdHandle, buff, firstSector, sectorCount);
 	xSemaphoreTake(xTransferCpltSema, portMAX_DELAY);
 
 	if (result == HAL_OK) {
@@ -133,13 +134,7 @@ DRESULT SDCard::sdRead(uint8_t * buff, uint32_t firstSector, uint32_t sectorCoun
 extern "C" {
 
 void HAL_SD_RxCpltCallback(SD_HandleTypeDef * sdh) {
-	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
-	xSemaphoreGiveFromISR(xTransferCpltSema, &xHigherPriorityTaskWoken);
-
-	if( xHigherPriorityTaskWoken != pdFALSE ) {
-		portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-	}
 }
 
 void SDMMC2_IRQHandler() {
@@ -149,6 +144,13 @@ void SDMMC2_IRQHandler() {
 
 void DMA2_Stream0_IRQHandler() {
 	HAL_DMA_IRQHandler(sdHandle.hdmarx);
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+	xSemaphoreGiveFromISR(xTransferCpltSema, &xHigherPriorityTaskWoken);
+
+	if( xHigherPriorityTaskWoken != pdFALSE ) {
+		portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+	}
 }
 
 void DMA2_Stream5_IRQHandler() {

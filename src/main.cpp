@@ -86,7 +86,7 @@ int main(void) {
 	xEventGroupClearBits(xFramebuffersState, BB_DRAWN);
 
 	xTaskCreate(&DisplayTask, "ScreenRefresh", configMINIMAL_STACK_SIZE*2, NULL, 3, NULL );
-	xTaskCreate(&MainTask, "MainTask", configMINIMAL_STACK_SIZE*10, NULL, 2, NULL ); // Probably doesnt need that big of a stack. Test and fix
+	xTaskCreate(&MainTask, "MainTask", configMINIMAL_STACK_SIZE*12, NULL, 2, NULL ); // Probably doesnt need that big of a stack. Test and fix
 	xTaskCreate(&TouchEventTask, "TsTask", configMINIMAL_STACK_SIZE*2, NULL, 2, NULL );
 	xTaskCreate(&PlayerTask, "PlayerTask", configMINIMAL_STACK_SIZE*2, NULL, 4, NULL);
 	vTaskStartScheduler();
