@@ -162,21 +162,20 @@ const TCHAR * FsFolder::getPath() {
 }
 
 bool compareFileInfos(std::shared_ptr<FileInfos> f1, std::shared_ptr<FileInfos> f2) {
-	for (uint8_t index = 0; index <= strlen(f1->getName().get()); index++) {
-		if (toupper(f1->getName().get()[index]) != toupper(f2->getName().get()[index])) {
-			return toupper(f1->getName().get()[index]) < toupper(f2->getName().get()[index]);
+	for (uint8_t i = 0; i <= strlen(f1->getName().get()); i++) {
+		if (toupper(f1->getName().get()[i]) != toupper(f2->getName().get()[i])) {
+			return toupper(f1->getName().get()[i]) < toupper(f2->getName().get()[i]);
 		}
 	}
 	return true;
 }
 
 bool compareDirNames(std::shared_ptr<TCHAR> d1, std::shared_ptr<TCHAR> d2) {
-	for (uint8_t index = 0; index <= strlen(d1.get()); index++) {
-		if (toupper(d1.get()[index]) != toupper(d2.get()[index])) {
-			return toupper(d1.get()[index]) < toupper(d2.get()[index]);
+	for (uint8_t i = 0; i <= strlen(d1.get()); i++) {
+		if (toupper(d1.get()[i]) != toupper(d2.get()[i])) {
+			return toupper(d1.get()[i]) < toupper(d2.get()[i]);
 		}
 	}
 	return true;
 }
-
 

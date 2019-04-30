@@ -1,12 +1,4 @@
-/*
- * TrackInfos.h
- *
- *  Created on: Apr 22, 2019
- *      Author: xbg
- */
-
-#ifndef PT3_TRACKINFOS_H_
-#define PT3_TRACKINFOS_H_
+#pragma once
 
 class TrackInfos {
 public:
@@ -21,5 +13,3 @@ private:
 	char * _trackName;
 	char * _author;
 };
-
-#endif /* PT3_TRACKINFOS_H_ */
