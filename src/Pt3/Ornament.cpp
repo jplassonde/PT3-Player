@@ -24,3 +24,7 @@ uint8_t Ornament::getSemitoneOffset() {
 	}
 	return ornData[position++];
 }
+
+void Ornament::reset() {
+	position = 0;
+}

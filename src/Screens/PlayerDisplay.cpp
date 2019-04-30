@@ -3,6 +3,9 @@
 #include "Font.h"
 #include "SideScroller.h"
 #include <cstring>
+#include "Button.h"
+#include "listtab200x50.h"
+#include "TrackSlider.h"
 
 PlayerDisplay::PlayerDisplay(MainEngine * me) : mainEngine(me) {
 
@@ -21,15 +24,26 @@ PlayerDisplay::PlayerDisplay(MainEngine * me) : mainEngine(me) {
 							"\xC0\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xD9"};
 
 	for (uint8_t i = 0; i < sizeof(lines)/sizeof(lines[0]); i++) {
-		std::unique_ptr<ScreenElement> textLine(new Text(35, (i+1)*27, rezFont27px, lines[i], false));
+		std::unique_ptr<ScreenElement> textLine(new Text(35, (i+2)*27, rezFont27px, lines[i], false));
 		screenElemV.push_back(std::move(textLine));
 	}
+
+	std::unique_ptr<ScreenElement> slider(new TrackSlider(100, 400, 600, 50));
+	screenElemV.push_back(std::move(slider));
+
+	auto browseCallback = std::bind(&MainEngine::browse, mainEngine);
+	std::unique_ptr<ScreenElement> browseTab(new Button(0,0, 200, 50, (uint32_t)listtab200x50, browseCallback));
+	screenElemV.push_back(std::move(browseTab));
 }
 
 PlayerDisplay::~PlayerDisplay() {}
 
 void PlayerDisplay::processTouch(TOUCH_EVENT_T touchEvent) {
-	// Nothing. No pause/play/stop/go back to browsing, yet
+		for (auto &i : screenElemV) {
+			if (i->isInside(touchEvent.xPosition, touchEvent.yPosition)) {
+				(*i.*(ScreenElement::eventPtr[touchEvent.touchEvent]))(touchEvent);
+			}
+		}
 }
 
 
@@ -43,29 +57,21 @@ void PlayerDisplay::drawScreen() {
 	}
 }
 
-void PlayerDisplay::setInfos(const uint8_t * fn, const uint8_t * mod, const uint8_t * auth) {
+void PlayerDisplay::setInfos(TrackInfos * ti) {
 	trackInfosV.clear();
-	std::unique_ptr<ScreenElement> fileName(new SideScroller(35+2*27, 4*27, 23*27, rezFont27px, 3, (const char *)fn));
+
+	std::unique_ptr<ScreenElement> fileName(new SideScroller(35+2*27, 5*27, 23*27, rezFont27px, 3, ti->getFilename()));
 	trackInfosV.push_back(std::move(fileName));
 
-	char tmp[33] = {0};
-	// Get the last non-space character in module Author/trackname
-	remTrailingSpace(tmp, mod);
-	std::unique_ptr<ScreenElement> modName(new SideScroller(35+6*27, 8*27, 15*27, rezFont27px, 3, (char *)tmp));
+	std::unique_ptr<ScreenElement> modName(new SideScroller(35+6*27, 9*27, 15*27, rezFont27px, 3, ti->getTrackName()));
 	trackInfosV.push_back(std::move(modName));
 
-	remTrailingSpace(tmp, auth);
-	std::unique_ptr<ScreenElement> authName(new SideScroller(35+6*27, 12*27, 15*27, rezFont27px, 3, (char *)tmp));
+	std::unique_ptr<ScreenElement> authName(new SideScroller(35+6*27, 13*27, 15*27, rezFont27px, 3, ti->getAuthor()));
 	trackInfosV.push_back(std::move(authName));
 
+	delete ti;
 }
 
-static void remTrailingSpace(char * to, const uint8_t * from) {
-	for (uint8_t i = 31; i > 0; i--) {
-			if (from[i] != ' ') {
-				strncpy(to, (const char *)from, i+1);
-				to[i+1] = 0;
-				return;
-			}
-		}
+bool PlayerDisplay::isActive() {
+	return trackInfosV.size();
 }

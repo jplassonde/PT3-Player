@@ -24,9 +24,12 @@ typedef struct SOUNDCHIP_T {
 
 class Pt3Parser {
 public:
-	Pt3Parser(SOUNDCHIP_T * const chip, const uint8_t * module, bool loop);
+	Pt3Parser(SOUNDCHIP_T * const chip, const uint8_t * module);
 	virtual ~Pt3Parser();
 	bool processTick();
+	uint32_t getTotalTime();
+	uint32_t getLoopTime();
+	void reset();
 
 private:
 	uint8_t parseLine(Channel * channel);
@@ -40,9 +43,6 @@ private:
 // Determine the number of tick (20ms) between line parsing
 	uint8_t speed;
 	uint8_t tick;
-
-// Set song to loop or exit when end is reached
-	bool loop;
 
 // Pointer to useful spots in the .pt3
 	const uint16_t * const pTable;

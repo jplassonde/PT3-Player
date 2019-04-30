@@ -11,9 +11,9 @@ constexpr uint8_t SAMPTABLE_IDX = 0x69;
 constexpr uint8_t ORNTABLE_IDX = 0xA9;
 constexpr uint8_t PATTERNORDER_IDX = 0xC9;
 
-Pt3Parser::Pt3Parser(SOUNDCHIP_T * const chip, const uint8_t * module, bool loop) :
+Pt3Parser::Pt3Parser(SOUNDCHIP_T * const chip, const uint8_t * module) :
 														  soundchip(chip),
-														  module(module), loop(loop),
+														  module(module),
 													   	  pTable((uint16_t *)&module[*(uint16_t *)&module[PTABLE_LOC]]),
 														  ornTable((uint16_t *)&module[ORNTABLE_IDX]),
 														  sampleTable((uint16_t *)&module[SAMPTABLE_IDX]),
@@ -48,13 +48,14 @@ bool Pt3Parser::processTick() {
 
 		if (!channelA->isBlank()) {
 			if (module[channelA->pos] == 0) { // 0 at the start of Channel line indicates end of pattern.
-				if (!advancePattern()) { // If the end is reached and loop is off
+				if (advancePattern() == false) { // If the end is reached
+					channelA->setBlanks(0);
 					return false;		 // return false, end track.
 				}
 			}
 			while(parseLine(channelA));
-
 		}
+
 		if (!channelB->isBlank())
 			while(parseLine(channelB));
 		if (!channelC->isBlank())
@@ -85,23 +86,19 @@ bool Pt3Parser::processTick() {
 	else
 		soundchip->volC = 0;
 
-	//TEST - REMOVE
-	//soundchip->mixer = 0xFD;
-	//soundchip->mixer = 0x3F;
-	//soundchip->volA &= 0x10;
-
 	if (envSlideEnabled) {
 		processEnvSlide();
-	}
-	if (baseNoise == 0) {
-		baseNoise =1;
 	}
 
 	envelopeFreq += baseEnvelope;
 	noiseFreq += baseNoise;
-	if (envelopeFreq == 0) {
+
+	if (noiseFreq == 0)
+		noiseFreq = 1;
+
+	if (envelopeFreq == 0)
 		envelopeFreq = 1;
-	}
+
 	soundchip->envH = (envelopeFreq & 0xFF00) >> 8;
 	soundchip->envL = envelopeFreq & 0xFF;
 	soundchip->noiseFreq = noiseFreq & 0x1F;
@@ -110,12 +107,11 @@ bool Pt3Parser::processTick() {
 }
 
 bool Pt3Parser::advancePattern() {
+	bool retval = true;
 	uint8_t patternNumber = patternOrder[++currentPattern];
 
 	if (currentPattern >= module[PATTERNCNT_IDX]) { // When it reached the end
-		if (loop == false) {
-			return false;
-		}
+		retval = false;
 		currentPattern = module[LOOPPOS_IDX];
 		patternNumber = patternOrder[currentPattern];
 	}
@@ -124,9 +120,8 @@ bool Pt3Parser::advancePattern() {
 	channelB->pos = pTable[patternNumber+1];
 	channelC->pos = pTable[patternNumber+2];
 
-	return true;
+	return retval;
 }
-
 
 uint8_t Pt3Parser::parseLine(Channel * channel) {
 	uint8_t data = module[channel->pos++];
@@ -176,7 +171,6 @@ uint8_t Pt3Parser::parseLine(Channel * channel) {
 		while(parseLine(channel));
 		speed = module[channel->pos++];
 		return 0;
-
 
 	case 0x10: // Undocumented. pt 3.6 feature?
 		channel->disableEnvelope();
@@ -265,4 +259,41 @@ void Pt3Parser::initEnvelope(uint8_t shape, uint8_t envH, uint8_t envL, Channel 
 	channel->enableEnvelope();
 	envSlideEnabled = false;
 	soundchip->envReset = 1;
+}
+
+uint32_t Pt3Parser::getTotalTime() {
+	uint32_t totalTime = 0;
+
+	while(processTick()) {
+		totalTime += 20;
+	}
+
+	reset();
+
+	return totalTime;
+}
+
+uint32_t Pt3Parser::getLoopTime() {
+	uint32_t loopTime = 0;
+	while(currentPattern != module[LOOPPOS_IDX]) {
+		processTick();
+		loopTime += 20;
+	}
+
+	reset();
+
+	return loopTime;
+}
+
+void Pt3Parser::reset() {
+	delete channelA;
+	delete channelB;
+	delete channelC;
+
+	currentPattern = 0;
+	const uint16_t * ft = freqTables[module[99]];
+	speed = module[TEMPO_IDX];
+	channelA = new Channel(Channel::chanA, pTable[patternOrder[currentPattern]], &module[sampleTable[1]], &module[ornTable[0]], ft);
+	channelB = new Channel(Channel::chanB, pTable[patternOrder[currentPattern]+1], &module[sampleTable[1]], &module[ornTable[0]], ft);
+	channelC = new Channel(Channel::chanC, pTable[patternOrder[currentPattern]+2], &module[sampleTable[1]], &module[ornTable[0]], ft);
 }

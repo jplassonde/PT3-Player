@@ -40,6 +40,7 @@ LTDC_HandleTypeDef  hltdc;
 I2C_HandleTypeDef i2c4;
 DMA2D_HandleTypeDef hdma2d;
 DSI_HandleTypeDef hdsi;
+DMA_HandleTypeDef ioxTxDMA;
 
 static void SystemClock_Config();
 static void SDRAM_Init();
@@ -51,7 +52,6 @@ static void soundTimer_Init();
 static void ayClock_Init();
 
 extern void XferCpltCallback(struct __DMA2D_HandleTypeDef * hdma2d);
-
 
 void hardware_config() {
 	// Enable D&I caches
@@ -466,8 +466,9 @@ static void I2C1_Init() {
 	ioxI2C.Init.OwnAddress2 = 0;
 	ioxI2C.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
 	ioxI2C.Init.Timing = 0xA02B91; // ~1MHz
-
+	ioxI2C.hdmatx = &ioxTxDMA;
 	HAL_I2C_Init(&ioxI2C);
+
 	HAL_I2CEx_ConfigAnalogFilter(&ioxI2C, I2C_ANALOGFILTER_ENABLE);
 	HAL_I2CEx_ConfigDigitalFilter(&ioxI2C, 0);
 	HAL_I2CEx_EnableFastModePlus(I2C_FASTMODEPLUS_I2C1);
@@ -475,6 +476,24 @@ static void I2C1_Init() {
 	NVIC_SetPriority(I2C1_EV_IRQn, IOX_I2C_PRIO);
 	NVIC_EnableIRQ(I2C1_EV_IRQn);
 
+	// IOX DMA
+	__HAL_RCC_DMA1_CLK_ENABLE();
+
+    ioxTxDMA.Instance = DMA1_Stream6;
+    ioxTxDMA.Init.Channel = DMA_CHANNEL_1;
+    ioxTxDMA.Init.Direction = DMA_MEMORY_TO_PERIPH;
+    ioxTxDMA.Init.PeriphInc = DMA_PINC_DISABLE;
+    ioxTxDMA.Init.MemInc = DMA_MINC_ENABLE;
+    ioxTxDMA.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+    ioxTxDMA.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    ioxTxDMA.Init.Mode = DMA_NORMAL;
+    ioxTxDMA.Init.Priority = DMA_PRIORITY_LOW;
+    ioxTxDMA.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+    ioxTxDMA.Parent = &ioxI2C;
+
+    NVIC_SetPriority(DMA1_Stream6_IRQn, IOX_DMA_PRIO);
+    NVIC_EnableIRQ(DMA1_Stream6_IRQn);
+    HAL_DMA_Init(&ioxTxDMA);
 }
 
 static void Touch_Init() {
@@ -574,7 +593,7 @@ static void ayClock_Init() {
 	tim12Handle.Init.Prescaler = 0;
 	tim12Handle.Channel = HAL_TIM_ACTIVE_CHANNEL_1;
 	tim12Handle.Init.CounterMode = TIM_COUNTERMODE_UP;
-	tim12Handle.Init.Period = 61;//60;
+	tim12Handle.Init.Period = 61;
 	tim12Handle.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	tim12Handle.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
 

@@ -8,16 +8,18 @@ SemaphoreHandle_t xTsIntSemaphore;
 SemaphoreHandle_t xTsI2CSemaphore;
 SemaphoreHandle_t xI2C4Mutex; // Will be useful later, same line as the audio codec
 
-TouchScreen::TouchScreen() {
-	lastX = 0;
-	lastY = 0;
-	touchData = {0};
-}
+constexpr uint8_t TS_ADDR 	 	= 0x54;
+constexpr uint8_t RXBUFFERSIZE	= 5;
+constexpr uint8_t GESTURE_THRESHOLD = 15;
+constexpr uint8_t DRIFT_LIM = 10;
+
+TouchScreen::TouchScreen() {}
 
 TouchScreen::~TouchScreen() {}
 
 void TouchScreen::monitorTs() {
 	uint8_t rxBuffer[RXBUFFERSIZE] = {0};
+	TOUCH_EVENT_T touchData = {0};
 
 	while(1) {
 		xSemaphoreTake(xTsIntSemaphore, portMAX_DELAY);
@@ -29,7 +31,7 @@ void TouchScreen::monitorTs() {
 		apparently not working & undocumented. */
 		touchData.yPosition = 479 - (((rxBuffer[0] & 0x0F) << 8) | rxBuffer[1]);
 		touchData.xPosition = (((rxBuffer[2] & 0x0F) << 8) | rxBuffer[3]);
-		processGesture();
+		findGesture(&touchData);
 		xQueueSend(xTSEventQueue, (void *)&touchData, portMAX_DELAY);
 	}
 }
@@ -57,30 +59,34 @@ void TouchScreen::getTsData(uint8_t * rxBuffer) {
 
 // The version of the TS controller used on the ST board apparently does not support gestures.
 // Lets add it with software...
-void TouchScreen::processGesture() {
+void TouchScreen::findGesture(TOUCH_EVENT_T * touchData) {
+	static uint16_t lastX = touchData->xPosition;
+	static uint16_t lastY = touchData->yPosition;
+
 	int16_t diffX = 0;
 	int16_t diffY = 0;
-	touchData.gesture = NO_GESTURE;
 
-	if (touchData.touchEvent == EVENT_CONTACT) {
-		diffX = touchData.xPosition - lastX;
-		diffY = touchData.yPosition - lastY;
+	touchData->gesture = NO_GESTURE;
+
+	if (touchData->touchEvent == EVENT_CONTACT) {
+		diffX = touchData->xPosition - lastX;
+		diffY = touchData->yPosition - lastY;
 		if (abs(diffX) >= GESTURE_THRESHOLD && abs(diffY) <= DRIFT_LIM) {
-			(diffX > 0) ? touchData.gesture = SWIPE_RIGHT : touchData.gesture = SWIPE_LEFT;
-			touchData.gestureMagnitude = (uint16_t)abs(diffX);
-			lastX = touchData.xPosition;
-			lastY = touchData.yPosition;
+			(diffX > 0) ? touchData->gesture = SWIPE_RIGHT : touchData->gesture = SWIPE_LEFT;
+			touchData->gestureMagnitude = (uint16_t)abs(diffX);
+			lastX = touchData->xPosition;
+			lastY = touchData->yPosition;
 		} else if (abs(diffY) >= GESTURE_THRESHOLD && abs(diffX) <= DRIFT_LIM) {
-			(diffY > 0) ? touchData.gesture = SWIPE_DOWN : touchData.gesture = SWIPE_UP;
-			touchData.gestureMagnitude = (uint16_t)abs(diffY);
-			lastX = touchData.xPosition;
-			lastY = touchData.yPosition;
+			(diffY > 0) ? touchData->gesture = SWIPE_DOWN : touchData->gesture = SWIPE_UP;
+			touchData->gestureMagnitude = (uint16_t)abs(diffY);
+			lastX = touchData->xPosition;
+			lastY = touchData->yPosition;
 		} else {
-			touchData.gesture = NO_GESTURE;
+			touchData->gesture = NO_GESTURE;
 		}
-	} else if (touchData.touchEvent == EVENT_DOWN) {
-		lastX = touchData.xPosition;
-		lastY = touchData.yPosition;
+	} else if (touchData->touchEvent == EVENT_DOWN) {
+		lastX = touchData->xPosition;
+		lastY = touchData->yPosition;
 	}
 }
 
@@ -93,8 +99,8 @@ void TouchEventTask(__attribute__((unused)) void *pvParameters) {
 	xTsIntSemaphore = xSemaphoreCreateBinary();
 	xTsI2CSemaphore = xSemaphoreCreateBinary();
 	xI2C4Mutex = xSemaphoreCreateMutex();
-	TouchScreen * ts = new TouchScreen;
-	ts->monitorTs();
+	TouchScreen ts;
+	ts.monitorTs();
 }
 
 //------- Interrupts & Callbacks Handlers -------//

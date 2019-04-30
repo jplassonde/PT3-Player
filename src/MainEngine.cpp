@@ -1,29 +1,26 @@
-#include "Browser.h"
-#include "Idle.h"
-#include "PlayerDisplay.h"
-#include "States.h"
+#include "Screens.h"
 #include "MainEngine.h"
 #include "fbState.h"
 #include "SDCard.h"
 #include "PlayerQueue.h"
 #include "scanline.h"
 #include "speccy800x180.h"
+#include "IEvent.h"
 
 // Global variables
 uint32_t globalTick;
 
 // Handles
 extern QueueHandle_t xTSEventQueue;
-extern QueueHandle_t xPlayerCmdQueue;
+extern QueueHandle_t xIeQueue;
 
 MainEngine::MainEngine() : idle(new Idle(this)), browser(new Browser(this)), pd(new PlayerDisplay(this)) {
 	currentScreen = idle;
 	globalTick = 0;
 }
 
-MainEngine::~MainEngine() {
+MainEngine::~MainEngine() {}
 
-}
 /*********************************************************************************
 Method: MainEngine::run
 Description:
@@ -31,15 +28,22 @@ Main program loop. Get touch data from the queue, sent from the touchScreen obje
 and pass it to the active "window" for processing
 
 Sync through an event group with the task responsible for refreshing the display
-to signal the backbuffer is ready and to wait for the backbuffer to be available
+to signal the backbuffer is ready and wait for the next backbuffer to be available
 **********************************************************************************/
 void MainEngine::run() {
 	TOUCH_EVENT_T touchEvent;
+	IEVENT_t iEvent;
 
 	while(1) {
+		if (xQueueReceive(xIeQueue, (void*)&iEvent, 0) == pdTRUE) {
+			if (iEvent.type == PLAYING) {
+				pd->setInfos(iEvent.trackInfos);
+			}
+		}
 		if (xQueueReceive(xTSEventQueue, (void*)&touchEvent, 0) == pdTRUE) {
 			currentScreen->processTouch(touchEvent);
 		}
+
 		xEventGroupWaitBits(xFramebuffersState, BB_AVAILABLE, pdTRUE, pdTRUE, portMAX_DELAY);
 		currentScreen->drawScreen();
 		addScanlines();
@@ -48,28 +52,25 @@ void MainEngine::run() {
 	}
 }
 
-void MainEngine::switchState(BaseScreen * screen) {
+void MainEngine::switchScreen(BaseScreen * screen) {
 	currentScreen = screen;
 }
 
-void MainEngine::play(uint8_t * name, uint8_t * file, FSIZE_t size) {
-	PLAYER_QUEUE_T pq;
-	pq.cmd = PLAY;
-	pq.moduleAddr = file;
-	pq.size = size;
+void MainEngine::play() {
+	if (pd->isActive()) {
+		switchScreen(pd);
+	} else {
+		switchScreen(idle);
+	}
+}
 
-	pd->setInfos(name, &file[30], &file[66]);
-	switchState(pd);
-	xQueueSend(xPlayerCmdQueue, (void *)&pq, portMAX_DELAY);
+void MainEngine::browse() {
+	switchScreen(browser);
 }
 
 /**********************************************************************************
 Method: MainEngine::addScanlines
-Description:
-Add horizontal scanlines to the display.
-
-Whoever designed the WVGA display forgot to put scanlines in it, so I'm adding them
-here.
+Description: Add horizontal scanlines to the display.
 ***********************************************************************************/
 void MainEngine::addScanlines() {
 	hdma2d.Init.Mode         = DMA2D_M2M_BLEND;
@@ -85,12 +86,12 @@ void MainEngine::addScanlines() {
 	HAL_DMA2D_ConfigLayer(&hdma2d, 1);
 
 	for (int i = 0; i<480; i++) {
-		if ((i % 2) == 0) {
+		if ((i & 1) == 0) {
 			HAL_DMA2D_BlendingStart_IT(&hdma2d, (uint32_t)scanline,
-					Screen::getBackBufferAddr()+800*i*4,
-					Screen::getBackBufferAddr()+800*i*4, 800, 1);
-			xSemaphoreTake(xDma2dSemaphore, portMAX_DELAY);
+										Screen::getBackBufferAddr()+800*i*4,
+										Screen::getBackBufferAddr()+800*i*4, 800, 1);
 
+			xSemaphoreTake(xDma2dSemaphore, portMAX_DELAY);
 		}
 	}
 }
@@ -98,7 +99,7 @@ void MainEngine::addScanlines() {
 /**********************************************************************************
 Method: MainEngine::drawBackground()
 Description:
-Clear background to grey and add Sinclair/speccy logo
+Clear background to grey and add Sinclair logo / speccy colors
 
 ***********************************************************************************/
 void MainEngine::drawBackground() {

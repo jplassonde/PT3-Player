@@ -2,10 +2,16 @@
 #include "project.h"
 #include "PlayerQueue.h"
 #include "TrackList.h"
+#include "playtab200x50.h"
+#include <functional>
 
 Browser::Browser(MainEngine * mainEngine) {
 	std::unique_ptr<ScreenElement> trackList(new TrackList(mainEngine));
 	screenElemV.push_back(std::move(trackList));
+
+	auto playCB = std::bind(&MainEngine::play, mainEngine);
+	std::unique_ptr<ScreenElement> playtab(new Button(0, 0, 200, 50, (uint32_t)playtab200x50, playCB));
+	screenElemV.push_back(std::move(playtab));
 }
 
 Browser::~Browser() {}

@@ -9,20 +9,15 @@
 #include "PlayerQueue.h"
 #include "listitem750x50.h"
 
-constexpr uint8_t ITEM_HEIGHT = 50;
-constexpr uint16_t LIST_HEIGHT = 430;
+uint8_t ITEM_HEIGHT = 50;
+uint16_t LIST_HEIGHT = 430;
+extern QueueHandle_t xPlayerCmdQueue;
 
-
-static bool compareItems(std::unique_ptr<ListElement> &l1, std::unique_ptr<ListElement> &l2);
-
-TrackList::TrackList(MainEngine * me) : mainEngine(me) {
+TrackList::TrackList(MainEngine * me) : mainEngine(me), folder() {
 	yPos = 50;
 	xPos = 0;
 	auto scrollerCallback = std::bind(&TrackList::scrollerCB, this,std::placeholders::_1);
 	scrollbar = std::make_unique<Scrollbar>(750,50, scrollerCallback);
-
-	path = (TCHAR *)pvPortMalloc(7*sizeof(TCHAR));
-	strcpy(path, "/files");
 
 	buildList();
 }
@@ -73,6 +68,7 @@ void TrackList::contact(TOUCH_EVENT_T touchEvent) {
 		} else if (touchEvent.gesture == SWIPE_DOWN) {
 			swipeDown(touchEvent.gestureMagnitude);
 		}
+
 	} else {
 		scrollbar->contact(touchEvent);
 	}
@@ -84,9 +80,8 @@ void TrackList::liftOff(TOUCH_EVENT_T touchEvent) {
 		if (idx < listV.size()) {
 			listV[idx]->liftOff(touchEvent);
 		}
-	} else {
-		scrollbar->liftOff(touchEvent);
 	}
+	scrollbar->liftOff(touchEvent);
 }
 
 bool TrackList::isInside(uint16_t x, uint16_t y) {
@@ -122,39 +117,32 @@ void TrackList::swipeDown(uint16_t mag) {
 }
 
 void TrackList::buildList() {
-	auto cdPtr = std::bind(&TrackList::changeDirectory, this, std::placeholders::_1, std::placeholders::_2);
-	auto playPtr = std::bind(&TrackList::play, this, std::placeholders::_1, std::placeholders::_2);
-	auto previousDir = std::bind(&TrackList::previousDir, this,std::placeholders::_1, std::placeholders::_2);
+	auto cdPtr = std::bind(&TrackList::changeDirectory, this, std::placeholders::_1);
+	auto playPtr = std::bind(&TrackList::play, this, std::placeholders::_1);
+	auto previousDir = std::bind(&TrackList::previousDir, this,std::placeholders::_1);
 
-	FATFS fs;
-	FRESULT res;
-	DIR dp;
-	FILINFO fno;
+	listV.clear();
 
-	f_mount(&fs, "", 0);
-	res = f_opendir(&dp, path);
+	const std::shared_ptr<std::vector<std::shared_ptr<FileInfos>>> files = folder.getFiles();
+	const std::shared_ptr<std::vector<std::shared_ptr<TCHAR>>> subdirs = folder.getDirs();
 
-	while(1) {
-		res = f_readdir(&dp, &fno);
-		if (res != FR_OK || fno.fname[0] == 0) {
-			break;
-		}
-		std::unique_ptr<ListElement>listElement(new ListElement(&fno, (fno.fattrib & AM_DIR ? cdPtr : playPtr)));
+	if (strlen(folder.getPath()) > 6) {
+		std::shared_ptr<TCHAR> prevDir = std::shared_ptr<TCHAR>((TCHAR*)pvPortMalloc(3*sizeof(TCHAR)));
+		strcpy(prevDir.get(), "..");
+		std::unique_ptr<ListElement> listElement(new ListElement(prevDir, previousDir));
 		listV.push_back(std::move(listElement));
 	}
 
-
-	if (strlen(path) > 6) {
-		strcpy(fno.fname,"..");
-		fno.fattrib = AM_DIR;
-		std::unique_ptr<ListElement>listElement(new ListElement(&fno,  previousDir));
+	for (auto &i : *subdirs.get()) {
+		std::unique_ptr<ListElement>listElement(new ListElement(i, cdPtr));
 		listV.push_back(std::move(listElement));
 	}
 
-	f_closedir(&dp);
-	f_mount(0, "", 0);
+	for (auto &i : *files.get()) {
+		std::unique_ptr<ListElement>listElement(new ListElement(i, playPtr));
+		listV.push_back(std::move(listElement));
+	}
 
-	std::sort(listV.begin(), listV.end(), compareItems);
 	offset = 0;
 	setItemPos();
 }
@@ -191,62 +179,24 @@ void TrackList::padScreen(uint8_t padStart) {
 	}
 }
 
-void TrackList::play(TCHAR * name, FSIZE_t size) {
-	FATFS fs;
-	FIL fp;
-	UINT numRead;
-	uint8_t * file = (uint8_t *)pvPortMalloc(size*sizeof(TCHAR));
-
-	f_mount(&fs, "", 0);
-	f_chdir(path);
-	f_open(&fp, name, FA_READ);
-	f_read(&fp, (void*)file, size, &numRead);
-	f_close(&fp);
-	f_mount(0, "", 0);
-
-	mainEngine->play((uint8_t *)name, file, size);
-
+void TrackList::play(std::shared_ptr<TCHAR> name) {
+	folder.setActiveFile(name);
+	PLAYER_QUEUE_T pq;
+	pq.cmd = PLAY;
+	pq.folder = new FsFolder(folder);
+	if (pq.folder == nullptr) {
+		while(1);
+	}
+	xQueueSend(xPlayerCmdQueue, (void *)&pq, portMAX_DELAY);
 }
 
-void TrackList::changeDirectory(TCHAR * name, FSIZE_t size) {
-	offset = 0;
-	TCHAR * newPath = (TCHAR*)pvPortMalloc((strlen(path)+strlen(name)+2)*sizeof(TCHAR));
-	strcpy(newPath, path);
-	strcat(newPath, "/");
-	strcat(newPath, name);
-	vPortFree(path);
-	path = newPath;
-	listV.clear();
+void TrackList::changeDirectory(std::shared_ptr<TCHAR> name) {
+	folder.enterDirectory(name.get());
 	buildList();
 }
 
-void TrackList::previousDir(TCHAR * name, FSIZE_t size) {
-	uint8_t lastSlash = 0;
-	int i = 6; // use /files as root
-	while(path[i]) {
-		if (path[i] == '/') {
-			lastSlash = i;
-		}
-		i++;
-	}
-	if (lastSlash != 0) {
-		path[lastSlash] = 0;
-		listV.clear();
-		buildList();
-	}
-}
+void TrackList::previousDir(__attribute__((unused)) std::shared_ptr<TCHAR> name) {
+	folder.setDirPrevious();
+	buildList();
 
-// Global compare function, for sort
-bool compareItems(std::unique_ptr<ListElement> &l1, std::unique_ptr<ListElement> &l2) {
-	// Place directories first
-	if (l1->getType() != l2->getType()) {
-		return l1->getType() < l2->getType();
-	}
-	// Then sort alphabetically, case insensitive
-	for (uint8_t index = 0; index <= strlen(l1->getName()); index++) {
-		if (toupper(l1->getName()[index]) != toupper(l2->getName()[index])) {
-			return toupper(l1->getName()[index]) < toupper(l2->getName()[index]);
-		}
-	}
-	return true; // in case of equal name(won't happen). Null char of shorter str will take care of it.*/
 }

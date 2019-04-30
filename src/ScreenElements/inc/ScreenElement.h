@@ -2,6 +2,7 @@
 
 #include "project.h"
 #include "TouchEvent.h"
+
 extern SemaphoreHandle_t xDma2dSemaphore;
 
 

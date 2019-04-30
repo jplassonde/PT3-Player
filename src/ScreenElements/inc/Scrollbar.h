@@ -9,6 +9,7 @@ public:
 	void draw();
 	void press(TOUCH_EVENT_T touchEvent);
 	void contact(TOUCH_EVENT_T touchEvent);
+	void liftOff(TOUCH_EVENT_T touchEvent);
 	void setCursor(uint16_t y);
 private:
 	void sendPos(uint16_t touchY);

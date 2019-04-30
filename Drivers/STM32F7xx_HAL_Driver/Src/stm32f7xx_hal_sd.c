@@ -1074,7 +1074,7 @@ HAL_StatusTypeDef HAL_SD_ReadBlocks_DMA(SD_HandleTypeDef *hsd, uint8_t *pData, u
     
     /* Initialize data control register */
     hsd->Instance->DCTRL = 0U;
-    
+    __HAL_SD_CLEAR_FLAG(hsd, SDMMC_STATIC_FLAGS);
     __HAL_SD_ENABLE_IT(hsd, (SDMMC_IT_DCRCFAIL | SDMMC_IT_DTIMEOUT | SDMMC_IT_RXOVERR | SDMMC_IT_DATAEND));
     
     /* Set the DMA transfer complete callback */
@@ -1140,6 +1140,8 @@ HAL_StatusTypeDef HAL_SD_ReadBlocks_DMA(SD_HandleTypeDef *hsd, uint8_t *pData, u
       hsd->State = HAL_SD_STATE_READY;
       return HAL_ERROR;
     }
+    __HAL_SD_CLEAR_FLAG(hsd, SDMMC_STATIC_FLAGS);
+    hsd->State = HAL_SD_STATE_READY;
 
     return HAL_OK;
   }

@@ -15,6 +15,8 @@ Channel::Channel(channelId chan, uint16_t startingPos, const uint8_t * sampBase,
 }
 
 Channel::~Channel() {
+	delete sample;
+	delete ornament;
 }
 
 void Channel::setGliss(const uint8_t * const args) {
@@ -57,6 +59,7 @@ void Channel::setTone(uint8_t toneIdx) {
 	effectFunct = nullptr;
 	baseToneIdx = toneIdx;
 	sample->reset();
+	ornament->reset();
 	playing = true;
 	accTone = 0;
 }
@@ -125,16 +128,21 @@ void Channel::processChanTick(uint8_t * freqH, uint8_t * freqL,
 	}
 
 	// This is wrong. The behavior on ornament > than table needs more investigation
-	// It overflow and wrap around at some point, but stall at the largest value for a bit before
-	uint8_t toneIdx = baseToneIdx + ornament->getSemitoneOffset();
-	uint16_t tone = freqTable[toneIdx] + sampData.toneShift;
 
+	int16_t toneIdx = baseToneIdx + (int8_t)ornament->getSemitoneOffset();
+	if (toneIdx < 0) {
+		toneIdx=0;
+	} else if (toneIdx > 95) {
+		toneIdx = 95;
+	}
+	uint16_t tone = freqTable[toneIdx] + sampData.toneShift;
 
 	// The mystery of the tone/noiseless envelope?
 	if (sampData.mask == 0x09) {
 		tone = 1;
 		sampData.mask = 0x08;
 	}
+
 	*freqH = (tone >> 8) & 0x0F;
 	*freqL = tone & 0xFF;
 	*mixer |= (sampData.mask << channel);

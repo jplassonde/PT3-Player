@@ -3,9 +3,9 @@
 
 
 extern I2C_HandleTypeDef ioxI2C;
+extern DMA_HandleTypeDef ioxTxDMA;
 
 constexpr uint8_t IOX_ADDR = 0x27 << 1;
-constexpr uint8_t TIMEOUT = 20;
 
 IoExpander::IoExpander() {
 	reset();
@@ -16,8 +16,9 @@ IoExpander::~IoExpander() {
 }
 
 void IoExpander::sendData(uint8_t * data, uint8_t size) {
-	HAL_I2C_Master_Transmit_IT(&ioxI2C, IOX_ADDR, data, size); // TODO: DMA. Proper DMA. Not HAL DMA.
-	xSemaphoreTake(xIOXSemaphore, portMAX_DELAY);
+	SCB_CleanDCache();
+	HAL_I2C_Master_Transmit_DMA(&ioxI2C, IOX_ADDR, data, size);
+	xSemaphoreTake(xIOXSemaphore, 20); // Resume if DMA timeout (only 1 tick is lost)
 }
 
 void IoExpander::reset() {
@@ -38,4 +39,9 @@ extern "C" {
 void I2C1_EV_IRQHandler() {
 	HAL_I2C_EV_IRQHandler(&ioxI2C);
 }
+
+void DMA1_Stream6_IRQHandler() {
+	HAL_DMA_IRQHandler(&ioxTxDMA);
+}
+
 }

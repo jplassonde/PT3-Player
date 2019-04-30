@@ -92,7 +92,6 @@ void TIM2_IRQHandler() {
 			portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 		}
 	}
-
 }
 
 void DSI_IO_WriteCmd(uint32_t NbrParams, uint8_t *pParams) {

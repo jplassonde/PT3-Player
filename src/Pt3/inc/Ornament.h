@@ -10,6 +10,7 @@ public:
 	void setOrnament(const uint8_t * base);
 	void setTickOffset(uint8_t offset);
 	uint8_t getSemitoneOffset();
+	void reset();
 private:
 	uint8_t loop;
 	uint8_t length;

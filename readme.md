@@ -8,13 +8,12 @@ Touchscreen music player on Cortex-M7 with FreeRTOS
 An attempt to build a touch-screen driven application without using a framework. 
 Browse PT3 files (ZX Spectrum tracker format) on an SD card, parse & play them on 
 AY-3-8910 soundchips on a custom add-on board.
-It is currently a work in progress, suffers from bad design here and there
-and still needs a lot of improvements...
+It is currently a work in progress, the next step is to add file browsing through MQTT.
 
 
 -= Program Overview =-
 
-It is built on STM32F769i-DISC0 in C++ with FreeRTOS and has 4 tasks. 
+It is built on STM32F769i-DISC0 in C++ with FreeRTOS and currently has 4 tasks. 
 - One task get the data from the touchscreen controller on interrupt, process the data and send it to the main task 
 through a queue.
 - One update the display in two halfs to avoid diagonal tearing effect (the GRAM is not updated on the same axis as 
@@ -44,13 +43,24 @@ Portamento effect works like the fixed version in PT3.6+, so files compiled with
 ever used in the few glitching cases.
 
 ------------------------------------------------------------------------------
+
+-= Changelog =-
+30-04-2019
+- Fixed the SD card DMA timeout for good, in the proper manner. The ST library ommitted to switch the SDMMC command path state machine back to idle state after operations. The timeout counter kept rolling and if no transaction was done in 3 minutes an interrupt was firing up during operation setup. A suggested workaround on ST community forum was to reinit and deinit the peripheral before and after each block(s) read, but it was a matter of finding the root of issue and the right bit to flip to come up with a much more efficient and elegant solution.
+- Added Icons for files/folders
+- More pointers! Smart pointers everywhere! The player now receive a directory object which stay (mostly) shared with the browser until either of them switch to a new one. This way the player is more independant, can receive from multiple source (MQTT ready) and can switch to next track by itself.
+- Total time & elapsed time now show up on the player-display, along with a slider which can be used to seek to a certain position in the track. An intermediate object between the player and the player-display is used for communication.
+- Tabs to switch between the player-display and and the browser.
+- Improved the sine-color formula for the player-display.
+- Fixed the last remaining memory leak! (more to come... :P)
+
+------------------------------------------------------------------------------
 -= Backlog =-
 
 General: 
-- Needs a LOT of refactoring / design improvement.
 - Software calibration of the touchscreen. Factory-mode "auto-calibration" is
   undocumented, and there is a significant drift at the end of the Y axis.
-- Add track controls (pause play stop), display time, slider, etc...
+- Add track controls (pause play stop).
 - Create and add icons for files and folders in the browser.
 
 PT3 parser:

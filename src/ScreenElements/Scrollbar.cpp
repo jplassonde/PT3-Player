@@ -39,6 +39,10 @@ void Scrollbar::contact(TOUCH_EVENT_T touchEvent) {
 	}
 }
 
+void Scrollbar::liftOff(TOUCH_EVENT_T touchEvent) {
+	isPressed = false;
+}
+
 // Send value in % (1-100) of the possible cursor range
 void Scrollbar::sendPos(uint16_t touchY) {
 	touchY-=yPos; // set base value to 0 (0-430 possible value)

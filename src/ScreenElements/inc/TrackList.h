@@ -1,11 +1,13 @@
 #pragma once
 
+
 #include "ScreenElement.h"
 #include "ListElement.h"
 #include "Scrollbar.h"
 #include  <vector>
 #include <memory>
 #include "MainEngine.h"
+#include "FsFolder.h"
 
 class TrackList: public virtual ScreenElement {
 public:
@@ -22,14 +24,14 @@ private:
 	void swipeUp(uint16_t mag);
 	void setItemPos();
 	bool scrollerCB(float percent);
-	void play(TCHAR * name, FSIZE_t size);
+	void play(std::shared_ptr<TCHAR>);
 	void buildList();
-	void changeDirectory(TCHAR * name, FSIZE_t size);
-	void previousDir(TCHAR * name, FSIZE_t size);
+	void changeDirectory(std::shared_ptr<TCHAR>);
+	void previousDir(std::shared_ptr<TCHAR>);
 
 	MainEngine * mainEngine;
 	std::vector<std::unique_ptr<ListElement>> listV;
 	std::unique_ptr<Scrollbar>scrollbar;
 	uint16_t offset;
-	char * path;
+	FsFolder folder;
 };

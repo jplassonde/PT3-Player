@@ -2,8 +2,8 @@
 #include "Printer.h"
 #include "Screen.h"
 #include <cmath>
-
 #include "colors.h"
+
 extern const uint8_t sinetable[];
 extern uint32_t globalTick;
 
@@ -14,10 +14,6 @@ constexpr uint8_t bppOut = 4; // Bytes per pixel of screenbuffer.
 namespace Printer {
 
 	namespace {
-		uint32_t getColor(uint16_t x, uint16_t y) {
-			return color2[(((sinetable[((x >> 2) + (globalTick << 2)) & 0xFF] << 1) + (y << 1) + (globalTick << 3)) >> 2) & 0xFF];
-		}
-
 		void prvPrintCroppedChar(uint16_t offset, char c, uint8_t leftCrop, uint8_t rightCrop, STR_PRINT_T * ps) {
 			uint32_t destination = Screen::getBackBufferAddr() + (ps->yPosition*800 + ps->xPosition + offset)*bppOut;
 			uint8_t width = ps->font->getWidth();
@@ -59,7 +55,7 @@ void printString(STR_PRINT_T * ps) {
 	hdma2d.Init.OutputOffset = 800 - ps->font->getWidth();
 	hdma2d.LayerCfg[0].InputOffset = 800 - ps->font->getWidth();
 	hdma2d.LayerCfg[1].InputColorMode = DMA2D_INPUT_A8;
-	hdma2d.LayerCfg[1].InputAlpha = 0xFF7f7f7f;
+	hdma2d.LayerCfg[1].InputAlpha = 0xFFCFCFCF;
 	hdma2d.LayerCfg[1].AlphaMode = DMA2D_NO_MODIF_ALPHA;
 	hdma2d.LayerCfg[1].InputOffset = 0;
 
@@ -164,5 +160,9 @@ void printCroppedImg(IMG_PRINT_T * ps) {
 					   ps->height);
 
 	xSemaphoreTake(xDma2dSemaphore, portMAX_DELAY);
+}
+
+uint32_t getColor(uint16_t x, uint16_t y) {
+	return color2[(((sinetable[((x >> 2) + (globalTick << 3)) & 0xFF] << 1) + (y << 1) + (globalTick << 3)) >> 2) & 0xFF];
 }
 }

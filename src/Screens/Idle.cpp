@@ -20,7 +20,7 @@ Idle::~Idle() {
 
 void Idle::processTouch(TOUCH_EVENT_T touchData) {
 	if (touchData.touchEvent == EVENT_UP) {
-		mainEngine->switchState(mainEngine->browser);
+		mainEngine->switchScreen(mainEngine->browser);
 	}
 }
 

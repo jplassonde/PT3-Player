@@ -33,6 +33,8 @@ void hardware_config();
 #include "fbState.h"
 #include "TouchEvent.h"
 #include "PlayerQueue.h"
+#include "IEvent.h"
+#include "TrackTime.h"
 
 // Task entry declaration
 void TouchEventTask(void *pvParameters);
@@ -47,13 +49,15 @@ SemaphoreHandle_t xDsiSemaphore;
 SemaphoreHandle_t xVblankSema;  // More like VSync....
 SemaphoreHandle_t xPlayTickSema;
 SemaphoreHandle_t xIOXSemaphore;
+SemaphoreHandle_t xFatFsMutex;
 EventGroupHandle_t xFramebuffersState;
 QueueHandle_t xTSEventQueue;
 QueueHandle_t xPlayerCmdQueue;
+QueueHandle_t xIeQueue;
 
 FrameCounter * fc;
 FrameCounter * vbc;
-
+TrackTime * trackTime;
 
 /********************************************************************
  Program entry:
@@ -77,16 +81,22 @@ int main(void) {
 	xDsiSemaphore = xSemaphoreCreateBinary();
 	xPlayTickSema = xSemaphoreCreateBinary();
 	xIOXSemaphore = xSemaphoreCreateBinary();
+	xFatFsMutex = xSemaphoreCreateMutex();
 	xFramebuffersState = xEventGroupCreate();
 
-	xTSEventQueue = xQueueCreate(1, sizeof(TOUCH_EVENT_T));
+	xTSEventQueue = xQueueCreate(2, sizeof(TOUCH_EVENT_T));
 	xPlayerCmdQueue = xQueueCreate(1, sizeof(PLAYER_QUEUE_T));
+	xIeQueue = xQueueCreate(1, sizeof(IEVENT_t));
 
 	xEventGroupSetBits(xFramebuffersState, BB_AVAILABLE);
 	xEventGroupClearBits(xFramebuffersState, BB_DRAWN);
 
+	vQueueAddToRegistry(xIOXSemaphore, "IOX DMA");
+
+	trackTime = new TrackTime();
+
 	xTaskCreate(&DisplayTask, "ScreenRefresh", configMINIMAL_STACK_SIZE*2, NULL, 3, NULL );
-	xTaskCreate(&MainTask, "MainTask", configMINIMAL_STACK_SIZE*12, NULL, 2, NULL ); // Probably doesnt need that big of a stack. Test and fix
+	xTaskCreate(&MainTask, "MainTask", configMINIMAL_STACK_SIZE*8, NULL, 2, NULL ); // Probably doesnt need that big of a stack. Test and fix
 	xTaskCreate(&TouchEventTask, "TsTask", configMINIMAL_STACK_SIZE*2, NULL, 2, NULL );
 	xTaskCreate(&PlayerTask, "PlayerTask", configMINIMAL_STACK_SIZE*2, NULL, 4, NULL);
 	vTaskStartScheduler();
@@ -118,7 +128,15 @@ void * operator new(size_t size) {
 	return pvPortMalloc(size);
 }
 
+void * operator new[](size_t size) {
+	return pvPortMalloc(size);
+}
+
 void operator delete(void * ptr) {
+	vPortFree(ptr);
+}
+
+void operator delete[]( void * ptr ) {
 	vPortFree(ptr);
 }
 

@@ -30,4 +30,5 @@ namespace Printer {
 	void printCroppedString(STR_PRINT_T * printStruct);
 	void printImg(IMG_PRINT_T * printStruct);
 	void printCroppedImg(IMG_PRINT_T * printStruct);
+	uint32_t getColor(uint16_t x, uint16_t y);
 };
