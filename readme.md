@@ -5,7 +5,6 @@ Touchscreen music player on Cortex-M7 with FreeRTOS
 
 [Demo on YouTube](https://www.youtube.com/watch?v=uLp3UKVO3BU)
 
-texxt
 An attempt to build a touch-screen driven application without using a framework. 
 Browse PT3 files (ZX Spectrum tracker format) on an SD card, parse & play them on 
 AY-3-8910 soundchips on a custom add-on board.
