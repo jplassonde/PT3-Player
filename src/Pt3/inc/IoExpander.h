@@ -11,5 +11,6 @@ public:
 	IoExpander();
 	virtual ~IoExpander();
 	void reset();
-	void sendData(uint8_t * data, uint8_t size);
+	void sendData(uint8_t * data, uint16_t size);
+	static void sendDataPolling(uint8_t * data, uint16_t size);
 };

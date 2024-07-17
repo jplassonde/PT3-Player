@@ -26,18 +26,23 @@ public:
 	virtual ~Player();
 	void run();
 private:
-	void play();
+	uint8_t play();
 	void processQueue(PLAYER_QUEUE_T * pq);
 	void initParser(uint8_t chipMask, uint8_t * modAddress);
-	uint8_t buildArray(uint8_t startPos, uint8_t * chip, uint8_t * prevVals, const uint8_t chipMask);
+	uint8_t buildArray(uint16_t startPos, uint8_t * chip, uint8_t * prevVals, const uint8_t chipMask);
 	void loadNext();
 	void loadModule();
+	void resetParsers();
+	void updateAY13Tone(uint8_t * current, uint8_t * previous);
+	void updateAY13Chan(uint8_t * current, uint8_t * previous, uint8_t baseReg);
+	void updateLeds();
 	std::vector<std::unique_ptr<CHIPSTATE_T>> chipV;
 	std::vector<std::unique_ptr<Pt3Parser>> parsers;
+
 	FsFolder * folder;
 	IoExpander * iox;
 	uint8_t * module;
-	uint8_t txArr[256];
+	uint8_t txArr[512];
 	bool playing;
 	uint32_t loopTime;
 

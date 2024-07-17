@@ -52,7 +52,7 @@ SDCard::SDCard() {
     sdHandle.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_ENABLE;
     sdHandle.hdmarx = &rxDMAHandle;
     sdHandle.hdmatx = &txDMAHandle;
-// Configure DMA - Using DMA2 Chan 11, stream 0 for Rx, stream 5 for Tx
+// Configure DMA - Using DMA2 stream 0 for Rx, stream 5 for Tx
 
     // RX DMA config
     rxDMAHandle.Instance = DMA2_Stream0;

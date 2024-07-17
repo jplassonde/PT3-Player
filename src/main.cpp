@@ -36,6 +36,9 @@ void hardware_config();
 #include "IEvent.h"
 #include "TrackTime.h"
 
+#include "ControlReq.h"
+#include "Wm8994.h"
+
 // Task entry declaration
 void TouchEventTask(void *pvParameters);
 void MainTask(void *pvParameters);
@@ -44,6 +47,8 @@ void PlayerTask(void *pvParameters);
 
 uint8_t ucHeap[configTOTAL_HEAP_SIZE * 3];
 
+extern SemaphoreHandle_t xTsI2CSemaphore;
+extern SemaphoreHandle_t xI2C4Mutex;
 SemaphoreHandle_t xDma2dSemaphore;
 SemaphoreHandle_t xDsiSemaphore;
 SemaphoreHandle_t xVblankSema;  // More like VSync....
@@ -52,12 +57,15 @@ SemaphoreHandle_t xIOXSemaphore;
 SemaphoreHandle_t xFatFsMutex;
 EventGroupHandle_t xFramebuffersState;
 QueueHandle_t xTSEventQueue;
+QueueHandle_t xMp3PlayerCmdQueue;
 QueueHandle_t xPlayerCmdQueue;
 QueueHandle_t xIeQueue;
+extern QueueHandle_t xUsbhCtrlQueue;
 
 FrameCounter * fc;
 FrameCounter * vbc;
 TrackTime * trackTime;
+
 
 /********************************************************************
  Program entry:
@@ -69,6 +77,12 @@ TrackTime * trackTime;
  PlayerTask entry in Player.cpp
 
  ********************************************************************/
+
+// USB Test
+extern void UsbTask(void *pvParameters);
+
+
+
 int main(void) {
     hardware_config();
     HAL_Delay(200);
@@ -83,22 +97,28 @@ int main(void) {
     xIOXSemaphore = xSemaphoreCreateBinary();
     xFatFsMutex = xSemaphoreCreateMutex();
     xFramebuffersState = xEventGroupCreate();
+    xTsI2CSemaphore = xSemaphoreCreateBinary();
+    xI2C4Mutex = xSemaphoreCreateMutex();
 
     xTSEventQueue = xQueueCreate(2, sizeof(TOUCH_EVENT_T));
+    xMp3PlayerCmdQueue = xQueueCreate(1, sizeof(PLAYER_QUEUE_T));
     xPlayerCmdQueue = xQueueCreate(1, sizeof(PLAYER_QUEUE_T));
     xIeQueue = xQueueCreate(1, sizeof(IEVENT_t));
-
+    xUsbhCtrlQueue = xQueueCreate(5, sizeof(ControlReq*));
     xEventGroupSetBits(xFramebuffersState, BB_AVAILABLE);
     xEventGroupClearBits(xFramebuffersState, BB_DRAWN);
 
-    vQueueAddToRegistry(xIOXSemaphore, "IOX DMA");
+    // IOX DMA Debug
+    //vQueueAddToRegistry(xIOXSemaphore, "IOX DMA");
 
     trackTime = new TrackTime();
 
+	Wm8994* wm = Wm8994::getInstance();
+    xTaskCreate(&UsbTask, "UsbTask", configMINIMAL_STACK_SIZE * 4, NULL, 5, NULL);
     xTaskCreate(&DisplayTask, "ScreenRefresh", configMINIMAL_STACK_SIZE * 2, NULL, 3, NULL);
-    xTaskCreate(&MainTask, "MainTask", configMINIMAL_STACK_SIZE * 8, NULL, 2, NULL); // Probably doesnt need that big of a stack. Test and fix
+    xTaskCreate(&MainTask, "MainTask", configMINIMAL_STACK_SIZE * 8, NULL, 2, NULL);
     xTaskCreate(&TouchEventTask, "TsTask", configMINIMAL_STACK_SIZE * 2, NULL, 2, NULL);
-    xTaskCreate(&PlayerTask, "PlayerTask", configMINIMAL_STACK_SIZE * 2, NULL, 4, NULL);
+    xTaskCreate(&PlayerTask, "PlayerTask", configMINIMAL_STACK_SIZE * 4, NULL, 4, NULL);
     vTaskStartScheduler();
 
     while (1);
@@ -126,6 +146,9 @@ void HAL_Delay(uint32_t Delay) {
 }
 
 void * operator new(size_t size) {
+	if (xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED) {
+		return malloc(size);
+	}
     return pvPortMalloc(size);
 }
 
@@ -137,6 +160,7 @@ void operator delete(void * ptr) {
     vPortFree(ptr);
 }
 
+// Is this eating my memory? No sign of it
 void operator delete[](void * ptr) {
     vPortFree(ptr);
 }

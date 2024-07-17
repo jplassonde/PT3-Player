@@ -8,9 +8,11 @@
 #include "PlayerQueue.h"
 #include "listitem750x50.h"
 
-uint8_t ITEM_HEIGHT = 50;
-uint16_t LIST_HEIGHT = 430;
+constexpr uint8_t ITEM_HEIGHT = 50;
+constexpr uint16_t LIST_HEIGHT = 430;
+
 extern QueueHandle_t xPlayerCmdQueue;
+extern QueueHandle_t xMp3PlayerCmdQueue;
 
 TrackList::TrackList(MainEngine * me) :
         mainEngine(me), folder() {
@@ -126,7 +128,7 @@ void TrackList::buildList() {
     const std::shared_ptr<std::vector<std::shared_ptr<FileInfos>>>files = folder.getFiles();
     const std::shared_ptr<std::vector<std::shared_ptr<TCHAR>>>subdirs = folder.getDirs();
 
-    if (strlen(folder.getPath()) > 6) {
+    if (strlen(folder.getPath()) > 6) { // if not on root (/files) folder, add a previous-dir link
         std::shared_ptr<TCHAR> prevDir = std::shared_ptr<TCHAR>((TCHAR*)pvPortMalloc(3 * sizeof(TCHAR)));
         strcpy(prevDir.get(), "..");
         std::unique_ptr<ListElement> listElement(new ListElement(prevDir, previousDir));
@@ -185,7 +187,16 @@ void TrackList::play(std::shared_ptr<TCHAR> name) {
     pq.cmd = PLAY;
     pq.folder = new FsFolder(folder);
 
-    xQueueSend(xPlayerCmdQueue, (void * )&pq, portMAX_DELAY);
+    char * extension = strrchr(name.get(), '.') + 1;
+
+    if (strcmp(extension, "mp3") == 0) {
+    	xQueueSend(xMp3PlayerCmdQueue, (void * )&pq, portMAX_DELAY);
+    	pq = {0};
+    	pq.cmd = STOP;
+
+    } else if (strcmp(extension, "pt3") == 0) {
+    	xQueueSend(xPlayerCmdQueue, (void * )&pq, portMAX_DELAY);
+    }
 }
 
 void TrackList::changeDirectory(std::shared_ptr<TCHAR> name) {

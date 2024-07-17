@@ -34,6 +34,20 @@ SOFTWARE.
 #include "project.h"
 #include "hardware_conf.h"
 #include "IrqPriorities.h"
+#include "usbh_def.h"
+#include "usbh_core.h"
+#include "usbh_audio.h"
+#include "Wm8994.h"
+#include "usbEvent.h"
+
+extern HCD_HandleTypeDef hhcd;
+USBH_HandleTypeDef hUSBHost;
+extern USBH_ClassTypeDef G935_Class;
+
+
+TIM_HandleTypeDef chanATimHandle;
+TIM_HandleTypeDef chanBTimHandle;
+TIM_HandleTypeDef chanCTimHandle;
 
 I2C_HandleTypeDef ioxI2C;
 LTDC_HandleTypeDef  hltdc;
@@ -50,8 +64,53 @@ static void Touch_Init();
 static void GPIO_Init();
 static void soundTimer_Init();
 static void ayClock_Init();
+static void toneCounters_Init();
 
 extern void XferCpltCallback(struct __DMA2D_HandleTypeDef * hdma2d);
+
+
+void USBH_UserProcess(USBH_HandleTypeDef *phost, uint8_t id) {
+	switch (id) {
+	case HOST_USER_SELECT_CONFIGURATION:
+		break;
+	case HOST_USER_CLASS_ACTIVE:
+		break;
+	case HOST_USER_CLASS_SELECTED:
+		break;
+	case HOST_USER_CONNECTION:
+		break;
+	case HOST_USER_DISCONNECTION:
+		break;
+	case HOST_USER_UNRECOVERED_ERROR:
+		break;
+	default:
+		break;
+	}
+}
+
+extern "C" {
+void OTG_HS_IRQHandler(void)
+{
+  HAL_HCD_IRQHandler(&hhcd);
+}
+}
+
+QueueHandle_t xUsbhQueue;
+
+void UsbTask(void *pvParameters) {
+	Usb_Event_t event;
+	xUsbhQueue = xQueueCreate(10, sizeof(Usb_Event_t));
+	USBH_Init(&hUSBHost, USBH_UserProcess, 0);
+	USBH_RegisterClass(&hUSBHost, &G935_Class);
+	USBH_Start(&hUSBHost);
+
+	for(;;) {
+		xQueueReceive(xUsbhQueue, &event, portMAX_DELAY);
+		hUSBHost.e = event;
+		USBH_Process(&hUSBHost);
+	}
+}
+
 
 void hardware_config() {
 	// Enable D&I caches
@@ -88,6 +147,10 @@ void hardware_config() {
 	GPIO_Init();
 	soundTimer_Init();
 	ayClock_Init();
+	toneCounters_Init();
+
+	HAL_Delay(20);
+	Wm8994::init();
 }
 
 static void SystemClock_Config() {
@@ -107,7 +170,6 @@ static void SystemClock_Config() {
 	RCC_OscInitStruct.PLL.PLLN = 432;
 	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
 	RCC_OscInitStruct.PLL.PLLQ = 4;
-	//RCC_OscInitStruct.PLL.PLLR = 4; // Im sure I put this here for a reason. Hm...... why is it commented out
 	HAL_RCC_OscConfig(&RCC_OscInitStruct);
 
 	// Activate OverDrive to reach the 216 MHz Frequency
@@ -123,17 +185,21 @@ static void SystemClock_Config() {
 
 
 	// LCD/SAI1 clock configuration
-	// 27.43 MHz to LCD, 48 MHz to SAIP
-	PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_LTDC | RCC_PERIPHCLK_I2C1 | RCC_PERIPHCLK_SDMMC2;
+	// 27.43 MHz to LCD, 48 MHz to SAIP. 25 MHz to SAIQ
+	PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_LTDC | RCC_PERIPHCLK_I2C1 | RCC_PERIPHCLK_SDMMC2 | RCC_PERIPHCLK_SAI1;
 	PeriphClkInitStruct.PLLSAI.PLLSAIN = 384;
 	PeriphClkInitStruct.PLLSAI.PLLSAIR = 7;
 	PeriphClkInitStruct.PLLSAI.PLLSAIP = RCC_PLLSAIP_DIV8;
 	PeriphClkInitStruct.PLLSAI.PLLSAIQ = 6;
 	PeriphClkInitStruct.PLLSAIDivR = RCC_PLLSAIDIVR_2;
 	PeriphClkInitStruct.PLLSAIDivQ = 1;
+	PeriphClkInitStruct.PLLI2S.PLLI2SN = 429;
+	PeriphClkInitStruct.PLLI2S.PLLI2SQ = 2;
+	PeriphClkInitStruct.PLLI2SDivQ = 19;
 	PeriphClkInitStruct.I2c1ClockSelection = RCC_I2C1CLKSOURCE_SYSCLK;
 	PeriphClkInitStruct.Clk48ClockSelection = RCC_CLK48SOURCE_PLLSAIP;
 	PeriphClkInitStruct.Sdmmc2ClockSelection = RCC_SDMMC2CLKSOURCE_CLK48;
+	PeriphClkInitStruct.Sai1ClockSelection = RCC_SAI1CLKSOURCE_PLLI2S;
 	HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct);
 }
 
@@ -396,10 +462,8 @@ static void LCD_Init(){
 	HAL_LTDC_Init(&hltdc);
 	HAL_DSI_ConfigAdaptedCommandMode(&hdsi, &cmdModeConfig);
 	HAL_DSI_ConfigCommand(&hdsi, &LPCmd);
-	/* Start DSI */
 	HAL_DSI_Start(&(hdsi));
 
-	/* Configure DSI PHY HS2LP and LP2HS timings */
 	HAL_DSI_ConfigPhyTimer(&hdsi, &PhyTimings);
 	HAL_DSI_ShortWrite(&hdsi, 0, DSI_DCS_SHORT_PKT_WRITE_P1,
 					   OTM8009A_CMD_DISPOFF, 0x00);
@@ -498,7 +562,6 @@ static void I2C1_Init() {
 
 static void Touch_Init() {
 	GPIO_InitTypeDef GPIO_InitStruct;
-
 	GPIO_InitStruct.Pin = GPIO_PIN_12;
 	GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -593,7 +656,7 @@ static void ayClock_Init() {
 	tim12Handle.Init.Prescaler = 0;
 	tim12Handle.Channel = HAL_TIM_ACTIVE_CHANNEL_1;
 	tim12Handle.Init.CounterMode = TIM_COUNTERMODE_UP;
-	tim12Handle.Init.Period = 61;
+	tim12Handle.Init.Period = 62 - 1;
 	tim12Handle.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	tim12Handle.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
 
@@ -604,7 +667,7 @@ static void ayClock_Init() {
 	HAL_TIM_PWM_Init(&tim12Handle);
 
 	clockOCCfg.OCMode = TIM_OCMODE_PWM1;
-	clockOCCfg.Pulse = 31;//30;
+	clockOCCfg.Pulse = 31;
 	clockOCCfg.OCPolarity = TIM_OCPOLARITY_HIGH;
 	clockOCCfg.OCFastMode = TIM_OCFAST_ENABLE;
 	HAL_TIM_PWM_ConfigChannel(&tim12Handle, &clockOCCfg, TIM_CHANNEL_1);
@@ -612,3 +675,46 @@ static void ayClock_Init() {
 	HAL_TIM_PWM_Start(&tim12Handle,TIM_CHANNEL_1);
 }
 
+
+// TIM3 -> AY-3-8913 chan A
+// TIM4 -> AY-3-8913 chan B
+// TIM7 -> AY-3-8913 chan C
+static void toneCounters_Init() {
+	TIM_ClockConfigTypeDef clockCfg;
+	TIM_HandleTypeDef timHandle;
+
+	__HAL_RCC_TIM3_CLK_ENABLE();
+	__HAL_RCC_TIM4_CLK_ENABLE();
+	__HAL_RCC_TIM7_CLK_ENABLE();
+
+	timHandle.Instance = TIM3;
+	timHandle.Channel = HAL_TIM_ACTIVE_CHANNEL_1;
+	timHandle.Init.CounterMode = TIM_COUNTERMODE_UP;
+	timHandle.Init.Prescaler = 496 - 1; // (108M (APB timer clock) / 62 (clock to chip divider) / 8 (internal AY tone counter divider) -1
+	timHandle.Init.Period = 0xFFF;
+	timHandle.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+	timHandle.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE; // reload value not buffered. Changes effective immediately
+	clockCfg.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+
+	HAL_TIM_Base_Init(&timHandle);
+	HAL_TIM_ConfigClockSource(&timHandle, &clockCfg);
+	__HAL_TIM_ENABLE(&timHandle);
+
+	timHandle.Instance = TIM4;
+	HAL_TIM_Base_Init(&timHandle);
+	HAL_TIM_ConfigClockSource(&timHandle, &clockCfg);
+	__HAL_TIM_ENABLE(&timHandle);
+
+	timHandle.Instance = TIM7;
+	HAL_TIM_Base_Init(&timHandle);
+	HAL_TIM_ConfigClockSource(&timHandle, &clockCfg);
+	__HAL_TIM_ENABLE(&timHandle);
+
+	NVIC_SetPriority(TIM3_IRQn, CHAN_A_TIM_PRIO);
+	NVIC_EnableIRQ(TIM3_IRQn);
+	NVIC_SetPriority(TIM4_IRQn, CHAN_B_TIM_PRIO);
+	NVIC_EnableIRQ(TIM4_IRQn);
+
+	NVIC_SetPriority(TIM7_IRQn, CHAN_C_TIM_PRIO);
+	NVIC_EnableIRQ(TIM7_IRQn);
+}

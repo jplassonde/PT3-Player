@@ -7,6 +7,11 @@
 #include "speccy800x180.h"
 #include "IEvent.h"
 
+// TEMP
+#include "testsignal.h"
+#include "usbh_g935.h"
+extern USBH_HandleTypeDef hUSBHost;
+
 // Global variables
 uint32_t globalTick;
 
@@ -16,7 +21,7 @@ extern QueueHandle_t xIeQueue;
 
 MainEngine::MainEngine() :
         idle(new Idle(this)), browser(new Browser(this)),
-                pd(new PlayerDisplay(this)) {
+                pd(new PlayerDisplay(this)), controls(new Controls(this)) {
     currentScreen = idle;
     globalTick = 0;
 }
@@ -68,6 +73,10 @@ void MainEngine::play() {
 
 void MainEngine::browse() {
     switchScreen(browser);
+}
+
+void MainEngine::showControls() {
+	switchScreen(controls);
 }
 
 /**********************************************************************************
@@ -125,9 +134,11 @@ void MainEngine::drawBackground() {
 }
 
 // Task Entry
+
 void MainTask(__attribute__((unused)) void *pvParameters) {
     fontInit();
     sdInit();
+
     MainEngine mainEngine;
     mainEngine.run();
 }

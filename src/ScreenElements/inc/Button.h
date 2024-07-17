@@ -12,6 +12,11 @@ public:
 	void press(TOUCH_EVENT_T touchEvent);
 	void liftOff(TOUCH_EVENT_T touchEvent);
 	bool isInside(uint16_t x, uint16_t y);
+
+	template<typename T>
+	void registerFunction(void (T::*funct)(uint8_t), T * obj) {
+		callBack = std::bind(funct, obj, std::placeholders::_1);
+	}
 private:
 	bool pressed;
 	uint32_t img;

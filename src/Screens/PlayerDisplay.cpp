@@ -5,7 +5,10 @@
 #include <cstring>
 #include "Button.h"
 #include "listtab200x50.h"
+#include "playtab200x50.h"
 #include "TrackSlider.h"
+#include "usbh_g935.h"
+#include "Wm8994.h"
 
 PlayerDisplay::PlayerDisplay(MainEngine * me) :
         mainEngine(me) {
@@ -36,13 +39,18 @@ PlayerDisplay::PlayerDisplay(MainEngine * me) :
             new TrackSlider(100, 400, 600, 50));
     screenElemV.push_back(std::move(slider));
 
+    auto controlButton = std::bind(&MainEngine::showControls, mainEngine);
+       std::unique_ptr<ScreenElement> controltab(new Button(200, 0, 200, 50, (uint32_t)playtab200x50, controlButton));
+       screenElemV.push_back(std::move(controltab));
+
     auto browseCallback = std::bind(&MainEngine::browse, mainEngine);
     std::unique_ptr<ScreenElement> browseTab(
             new Button(0, 0, 200, 50, (uint32_t)listtab200x50, browseCallback));
     screenElemV.push_back(std::move(browseTab));
 }
 
-PlayerDisplay::~PlayerDisplay() {}
+PlayerDisplay::~PlayerDisplay() {
+}
 
 void PlayerDisplay::processTouch(TOUCH_EVENT_T touchEvent) {
     for (auto &i : screenElemV) {
@@ -79,6 +87,9 @@ void PlayerDisplay::setInfos(TrackInfos * ti) {
 
     delete ti;
 }
+
+// Return the status of the player, ie: don't allow to switch to the player screen if no
+// track is playing
 
 bool PlayerDisplay::isActive() {
     return trackInfosV.size();

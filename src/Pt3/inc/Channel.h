@@ -47,7 +47,7 @@ public:
 	void unmute();
 	void processChanTick(uint8_t * freqH, uint8_t * freqL,
 						 uint8_t * mixer, uint8_t * vol,
-						 uint8_t * noise, uint16_t * env);
+						 uint8_t * noise, uint16_t * env, uint8_t chipId);
 	uint8_t baseToneIdx;
 private:
 	void (Channel::*effectFunct)(SAMPLE_DATA_T * sd);
@@ -57,7 +57,7 @@ private:
 	bool playing;
 	const uint16_t * freqTable;
 // Tone
-	uint16_t accTone;
+	int16_t accTone;
 
 // Volume
 	uint8_t volume;
@@ -75,9 +75,10 @@ private:
 // Effect
 	const uint8_t * effectArg;
 	uint8_t effectTick;
-	// temp hax to test portamento
+	// temp hax to fix portamento
 	uint8_t tempToneIdx;
-	uint16_t tempAccTone;
+	int16_t tempAccTone;
+	int16_t step;
 };
 
 

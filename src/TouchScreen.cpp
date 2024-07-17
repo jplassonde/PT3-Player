@@ -95,8 +95,7 @@ void TouchScreen::findGesture(TOUCH_EVENT_T * touchData) {
 
 void TouchEventTask(__attribute__((unused)) void *pvParameters) {
     xTsIntSemaphore = xSemaphoreCreateBinary();
-    xTsI2CSemaphore = xSemaphoreCreateBinary();
-    xI2C4Mutex = xSemaphoreCreateMutex();
+
     TouchScreen ts;
     ts.monitorTs();
 }
@@ -154,5 +153,7 @@ void EXTI15_10_IRQHandler() {
             portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
         }
     }
+
+
 }
 }

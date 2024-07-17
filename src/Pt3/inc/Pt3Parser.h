@@ -3,6 +3,8 @@
 #include <cstdio>
 #include "Channel.h"
 
+#define TRACK_FINISHED 0
+
 typedef struct SOUNDCHIP_T {
 	uint8_t chanFreqAL;
 	uint8_t chanFreqAH;
@@ -20,13 +22,15 @@ typedef struct SOUNDCHIP_T {
 	uint8_t envShape;
 	uint8_t mask;
 	uint8_t envReset;
+	uint8_t rVal;
+	uint8_t bVal;
 } SOUNDCHIP_T;
 
 class Pt3Parser {
 public:
 	Pt3Parser(SOUNDCHIP_T * const chip, const uint8_t * module);
 	virtual ~Pt3Parser();
-	bool processTick();
+	uint8_t processTick();
 	uint32_t getTotalTime();
 	uint32_t getLoopTime();
 	void reset();

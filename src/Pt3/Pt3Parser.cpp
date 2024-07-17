@@ -12,31 +12,17 @@ constexpr uint8_t ORNTABLE_IDX = 0xA9;
 constexpr uint8_t PATTERNORDER_IDX = 0xC9;
 
 Pt3Parser::Pt3Parser(SOUNDCHIP_T * const chip, const uint8_t * module)
-        : soundchip(chip), module(module),
+        : soundchip(chip),
+            module(module),
             pTable((uint16_t *)&module[*(uint16_t *)&module[PTABLE_LOC]]),
             ornTable((uint16_t *)&module[ORNTABLE_IDX]),
             sampleTable((uint16_t *)&module[SAMPTABLE_IDX]),
-            patternOrder(&module[PATTERNORDER_IDX]) {
+            patternOrder(&module[PATTERNORDER_IDX]),
+            channelA(nullptr),
+            channelB(nullptr),
+            channelC(nullptr) {
 
-    speed = module[TEMPO_IDX];
-    tick = speed;
-    currentPattern = 0;
-    baseNoise = 0;
-    baseEnvelope = 0;
-    envAcc = 0;
-    envSlideEnabled = false;
-
-    const uint16_t * ft = freqTables[module[99]];
-
-    // Init all three channels with 1st pattern and 1st sample (0th never used) and 0th ornament
-    channelA = new Channel(Channel::chanA, pTable[patternOrder[currentPattern]],
-            &module[sampleTable[1]], &module[ornTable[0]], ft);
-    channelB = new Channel(Channel::chanB,
-            pTable[patternOrder[currentPattern] + 1], &module[sampleTable[1]],
-            &module[ornTable[0]], ft);
-    channelC = new Channel(Channel::chanC,
-            pTable[patternOrder[currentPattern] + 2], &module[sampleTable[1]],
-            &module[ornTable[0]], ft);
+    reset();
 }
 
 Pt3Parser::~Pt3Parser() {
@@ -45,7 +31,7 @@ Pt3Parser::~Pt3Parser() {
     delete channelC;
 }
 
-bool Pt3Parser::processTick() {
+uint8_t Pt3Parser::processTick() {
     uint16_t envelopeFreq = 0;
     uint8_t noiseFreq = 0;
 
@@ -73,21 +59,21 @@ bool Pt3Parser::processTick() {
     if (channelA->isPlaying())
         channelA->processChanTick(&soundchip->chanFreqAH,
                 &soundchip->chanFreqAL, &soundchip->mixer, &soundchip->volA,
-                &noiseFreq, &envelopeFreq);
+                &noiseFreq, &envelopeFreq, soundchip->mask);
     else
         soundchip->volA = 0;
 
     if (channelB->isPlaying())
         channelB->processChanTick(&soundchip->chanFreqBH,
                 &soundchip->chanFreqBL, &soundchip->mixer, &soundchip->volB,
-                &noiseFreq, &envelopeFreq);
+                &noiseFreq, &envelopeFreq, soundchip->mask);
     else
         soundchip->volB = 0;
 
     if (channelC->isPlaying())
         channelC->processChanTick(&soundchip->chanFreqCH,
                 &soundchip->chanFreqCL, &soundchip->mixer, &soundchip->volC,
-                &noiseFreq, &envelopeFreq);
+                &noiseFreq, &envelopeFreq, soundchip->mask);
     else
         soundchip->volC = 0;
 
@@ -95,10 +81,14 @@ bool Pt3Parser::processTick() {
         processEnvSlide();
     }
 
+    if (envelopeFreq != 0) {
+    	envelopeFreq++;
+    }
+
     envelopeFreq += baseEnvelope;
     noiseFreq += baseNoise;
 
-    if (noiseFreq == 0)
+    if (noiseFreq == 0) // Is it AY8930 specific? Test with YM2149/AY-3-8910 to see if it glitches too at 0 freq <- It doesnt. Lets keep it there though
         noiseFreq = 1;
 
     if (envelopeFreq == 0)
@@ -134,8 +124,8 @@ uint8_t Pt3Parser::parseLine(Channel * channel) {
     switch (data) {
 
         case 0x00: // Means end of track. should never get here.
-            while (1);
-
+            while (1); // Hang->Debug, find out why.
+            break;
         case 0x01: // Glissando
             while (parseLine(channel)); // Process other bytes of data until we get to args
             channel->setGliss(&module[channel->pos]);
@@ -191,9 +181,9 @@ uint8_t Pt3Parser::parseLine(Channel * channel) {
 
         case 0x1F:
             while (1) ; // Find out if that case is ever used (and where/how/why)
-
+            break;
         case 0x20 ... 0x3F: // Base noise
-            baseNoise = data - 20;
+            baseNoise = data - 0x20;
             return 1;
 
         case 0x40 ... 0x4F: // Select ornament
@@ -284,7 +274,6 @@ uint32_t Pt3Parser::getLoopTime() {
         processTick();
         loopTime += 20;
     }
-
     reset();
     return loopTime;
 }
@@ -294,14 +283,30 @@ void Pt3Parser::reset() {
     delete channelB;
     delete channelC;
 
-    currentPattern = 0;
-    const uint16_t * ft = freqTables[module[99]];
     speed = module[TEMPO_IDX];
+    tick = speed;
+    currentPattern = 0;
+    baseNoise = 0;
+    baseEnvelope = 0;
+    envAcc = 0;
+    envSlideEnabled = false;
+    speed = module[TEMPO_IDX];
+
+    const uint16_t * ft;
+    // For table 2, use 2.5  if the its a Vortex II file or pro tracker 3.5+
+    if (module[99] == 2 && (module[13] >= 35 || module[0] == 'V')) {
+    	ft = freqTable2_5;
+    } else {
+    	ft = freqTables[module[99]];
+    }
+
     channelA = new Channel(Channel::chanA, pTable[patternOrder[currentPattern]],
             &module[sampleTable[1]], &module[ornTable[0]], ft);
+
     channelB = new Channel(Channel::chanB,
             pTable[patternOrder[currentPattern] + 1], &module[sampleTable[1]],
             &module[ornTable[0]], ft);
+
     channelC = new Channel(Channel::chanC,
             pTable[patternOrder[currentPattern] + 2], &module[sampleTable[1]],
             &module[ornTable[0]], ft);

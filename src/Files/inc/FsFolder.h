@@ -22,6 +22,7 @@ public:
 	const std::shared_ptr<std::vector<std::shared_ptr<FileInfos>>> getFiles();
 	const std::shared_ptr<std::vector<std::shared_ptr<TCHAR>>> getDirs();
 	const TCHAR * getPath();
+	const char * getCurrentFileExt();
 	void setActiveFile(std::shared_ptr<FileInfos>);
 	void setActiveFile(std::shared_ptr<TCHAR> filename);
 	void advanceFile();

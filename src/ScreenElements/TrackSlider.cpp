@@ -53,10 +53,10 @@ void TrackSlider::draw() {
     }
     uint32_t rowPos;
     uint32_t thisVariableShouldntExist = 0;
-    for (uint16_t row = yPos + ySize / 2 - SLIDER_HEIGHT / 2;
-            row <= yPos + ySize / 2 + SLIDER_HEIGHT / 2; row++) {
+    for (uint16_t row = yPos + ySize / 2 - SLIDER_HEIGHT / 2; row <= yPos + ySize / 2 + SLIDER_HEIGHT / 2; row++) {
         rowPos = Screen::getBackBufferAddr() + row * 800 * 4;
         thisVariableShouldntExist = 0;
+
         for (uint16_t col = xPos + xSize / 2 - SLIDER_LENGTH / 2;
                 col <= xPos + xSize / 2 + SLIDER_LENGTH / 2; col++) {
             if (thisVariableShouldntExist <= elapsedLength) {
@@ -66,7 +66,6 @@ void TrackSlider::draw() {
             }
             ++thisVariableShouldntExist;
         }
-
     }
 }
 
@@ -75,7 +74,7 @@ void TrackSlider::press(TOUCH_EVENT_T touchEvent) {
 }
 
 void TrackSlider::contact(TOUCH_EVENT_T touchEvent) {
-    // update position. Pressed -> slider show finger pos, unpress show track pos.. etc..
+    // update position on the fly later? Pressed -> slider show finger pos, unpress show track pos.. etc..
 }
 
 void TrackSlider::liftOff(TOUCH_EVENT_T touchEvent) {
@@ -96,7 +95,7 @@ void TrackSlider::liftOff(TOUCH_EVENT_T touchEvent) {
         PLAYER_QUEUE_T pq;
         pq.cmd = FF;
         pq.pos = newTrackPos;
-        xQueueSend(xPlayerCmdQueue, (void * )&pq, portMAX_DELAY);
+        xQueueSend(xPlayerCmdQueue, (void *)&pq, portMAX_DELAY);
     }
 }
 

@@ -59,7 +59,7 @@ void HAL_DSI_TearingEffectCallback(DSI_HandleTypeDef * hdsi) {
 }
 
 void HAL_DSI_EndOfRefreshCallback(DSI_HandleTypeDef * hdsi) {
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
         xSemaphoreGiveFromISR(xDsiSemaphore, &xHigherPriorityTaskWoken);
 
@@ -92,6 +92,7 @@ void TIM2_IRQHandler() {
         }
     }
 }
+
 
 void DSI_IO_WriteCmd(uint32_t NbrParams, uint8_t *pParams) {
     if (NbrParams <= 1) {

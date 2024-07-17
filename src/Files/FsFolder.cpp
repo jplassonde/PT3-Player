@@ -161,6 +161,11 @@ const TCHAR * FsFolder::getPath() {
 	return path;
 }
 
+const char * FsFolder::getCurrentFileExt() {
+	return strrchr(files->at(fIdx)->getName().get(), '.') + 1;
+}
+
+
 bool compareFileInfos(std::shared_ptr<FileInfos> f1, std::shared_ptr<FileInfos> f2) {
 	for (uint8_t i = 0; i <= strlen(f1->getName().get()); i++) {
 		if (toupper(f1->getName().get()[i]) != toupper(f2->getName().get()[i])) {

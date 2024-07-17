@@ -12,6 +12,6 @@ public:
 	uint32_t getTotal();
 	uint32_t getCurrent();
 private:
-	uint32_t _totalTime __attribute__ ((aligned (32)));
-	uint32_t _currentTime __attribute__ ((aligned (32)));
+	uint32_t _totalTime;
+	uint32_t _currentTime;
 };

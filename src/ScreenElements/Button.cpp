@@ -2,8 +2,7 @@
 #include "Button.h"
 #include "Printer.h"
 
-Button::Button(uint16_t x, uint16_t y, uint16_t xSize, uint16_t ySize, uint32_t img, std::function<
-        void()> cb) :
+Button::Button(uint16_t x, uint16_t y, uint16_t xSize, uint16_t ySize, uint32_t img, std::function<void()> cb) :
         ScreenElement(x, y, xSize, ySize), img(img), callBack(cb) {
     pressed = false;
 }

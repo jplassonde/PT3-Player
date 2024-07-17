@@ -14,5 +14,17 @@
 
 // AY Related
 #define AY_VBLANK_PRIO	10
-#define IOX_I2C_PRIO	9
+#define IOX_I2C_PRIO	7
 #define IOX_DMA_PRIO 	10
+
+// AY-3-8913 Sync timers
+#define CHAN_A_TIM_PRIO 8
+#define CHAN_B_TIM_PRIO 8
+#define CHAN_C_TIM_PRIO 8
+
+// SAI Related
+#define SAI_DMA_PRIO 7
+
+// USB
+#define OTG_HS_IRQ_PRIO 6
+

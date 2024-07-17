@@ -7,4 +7,4 @@ typedef struct IEVENT_t {
 	union {
 		TrackInfos * trackInfos;
 	};
-};
+} IEVENT_t;

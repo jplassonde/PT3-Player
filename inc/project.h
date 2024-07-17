@@ -10,6 +10,7 @@
 #include "semphr.h"
 #include "queue.h"
 #include "event_groups.h"
+#include "IrqPriorities.h"
 
 // Global Handles
 extern I2C_HandleTypeDef ioxI2C;
@@ -24,5 +25,7 @@ extern SemaphoreHandle_t xDsiSemaphore;
 extern SemaphoreHandle_t xVblankSema;
 extern SemaphoreHandle_t xPlayTickSema;
 extern SemaphoreHandle_t xIOXSemaphore;
+extern SemaphoreHandle_t xI2C4Mutex;
+extern SemaphoreHandle_t xTsI2CSemaphore;
 extern EventGroupHandle_t xFramebuffersState;
 extern QueueHandle_t xTSEventQueue;

@@ -51,7 +51,7 @@ void prvPrintColChar(uint16_t offset, char c, uint8_t leftCrop, uint8_t rightCro
         }
     }
 }
-} // End Anon Namespace:wq
+} // End Anon Namespacewq
 
 void printString(STR_PRINT_T * ps) {
     uint32_t destination = Screen::getBackBufferAddr() + (ps->yPosition * 800 + ps->xPosition) * 4;
@@ -146,6 +146,22 @@ void printImg(IMG_PRINT_T * ps) {
     xSemaphoreTake(xDma2dSemaphore, portMAX_DELAY);
 }
 
+void printARGB(IMG_PRINT_T * ps) {
+    uint32_t destination = Screen::getBackBufferAddr() + (ps->yPosition * 800 + ps->xPosition) * bppOut;
+
+    hdma2d.Init.Mode = DMA2D_M2M_BLEND;
+    hdma2d.Init.OutputOffset = 800 - ps->imgWidth;
+    hdma2d.LayerCfg[0].InputOffset = 800 - ps->imgWidth;
+    hdma2d.LayerCfg[1].InputColorMode = DMA2D_INPUT_ARGB8888;
+    hdma2d.LayerCfg[1].AlphaMode = DMA2D_NO_MODIF_ALPHA;
+    hdma2d.LayerCfg[1].InputOffset = 0;
+    HAL_DMA2D_Init(&hdma2d);
+    HAL_DMA2D_ConfigLayer(&hdma2d, 0);
+    HAL_DMA2D_ConfigLayer(&hdma2d, 1);
+    HAL_DMA2D_BlendingStart_IT(&hdma2d, ps->imgAddress, destination, destination, ps->imgWidth, ps->height);
+    xSemaphoreTake(xDma2dSemaphore, portMAX_DELAY);
+}
+
 void printCroppedImg(IMG_PRINT_T * ps) {
     uint32_t destination = Screen::getBackBufferAddr()
             + (ps->yPosition * 800 + ps->xPosition) * bppOut;
@@ -163,6 +179,20 @@ void printCroppedImg(IMG_PRINT_T * ps) {
 
     HAL_DMA2D_Start_IT(&hdma2d, source, destination, ps->imgWidth - ps->leftCrop - ps->rightCrop, ps->height);
 
+    xSemaphoreTake(xDma2dSemaphore, portMAX_DELAY);
+}
+
+void fill(uint16_t x, uint16_t y, uint16_t xSize, uint16_t ySize, uint32_t color) {
+    uint32_t destination = Screen::getBackBufferAddr()
+            + (y * 800 + x) * bppOut;
+	hdma2d.Init.Mode = DMA2D_R2M;
+    hdma2d.Init.OutputOffset = 800 - xSize;
+    hdma2d.LayerCfg[1].InputColorMode = DMA2D_INPUT_RGB888;
+    hdma2d.LayerCfg[1].AlphaMode = DMA2D_NO_MODIF_ALPHA;
+    hdma2d.LayerCfg[1].InputOffset = 0;
+    HAL_DMA2D_Init(&hdma2d);
+    HAL_DMA2D_ConfigLayer(&hdma2d, 1);
+    HAL_DMA2D_Start_IT(&hdma2d, color, destination, xSize, ySize);
     xSemaphoreTake(xDma2dSemaphore, portMAX_DELAY);
 }
 
