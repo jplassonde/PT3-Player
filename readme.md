@@ -1,7 +1,7 @@
 # PT3-Player
 Touchscreen music player on Cortex-M7 with FreeRTOS
 
-[![PT3-Player](http://img.youtube.com/vi/uLp3UKVO3BU/0.jpg)](http://www.youtube.com/watch?v=uLp3UKVO3BU)
+[![PT3-Player](http://img.youtube.com/vi/azNRBfbVEs0/0.jpg)](https://www.youtube.com/watch?v=azNRBfbVEs0)
 
 [Demo on YouTube](https://www.youtube.com/watch?v=uLp3UKVO3BU)
 
